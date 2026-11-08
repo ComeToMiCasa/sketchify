@@ -1,0 +1,117 @@
+<title>Border-image Edge Tests</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: 설명 → 테스트 3(테두리 없는 요소) 카드 격자 → 테스트 4(overflow) 카드 격자 */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --ink: #1b2130;
+  --muted: #5d6577;
+  --line: #d3d7df;
+  --accent: #2f6fe4;
+  --good: #1f7a4d;
+  --bad: #b3401f;
+  --paper: #fbfbf8;
+  --f-display: "Gaegu", cursive;
+  --f-body: "IBM Plex Sans KR", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14171d; --surface: #1c2029; --ink: #e7eaf0; --muted: #9aa2b2; --line: #2e3442; --accent: #7ea6ff; --good: #5fcf96; --bad: #ff8a66; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #14171d; --surface: #1c2029; --ink: #e7eaf0; --muted: #9aa2b2; --line: #2e3442; --accent: #7ea6ff; --good: #5fcf96; --bad: #ff8a66; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+header h1 { font-family: var(--f-display); font-size: 36px; line-height: 1.05; margin: 0 0 8px; text-wrap: balance; }
+header p, section > p { margin: 0; color: var(--muted); max-width: 78ch; font-size: 14px; }
+code { font-family: var(--f-mono); font-size: 0.88em; }
+section { display: grid; gap: 12px; }
+section h2 { margin: 0; font-size: 18px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.case { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.case h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.case h3 .id { font-family: var(--f-mono); color: var(--muted); font-weight: 400; margin-right: 6px; }
+.case pre { margin: 0; font-family: var(--f-mono); font-size: 11.5px; line-height: 1.5; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.expect { font-size: 12.5px; color: var(--muted); }
+.result { font-size: 12.5px; font-weight: 600; }
+.result.ok { color: var(--good); } .result.no { color: var(--bad); } .result.info { color: var(--accent); }
+.stage { background: #ffffff; border-radius: 6px; padding: 22px; display: grid; place-items: center; min-height: 120px; }
+
+/* 테스트 대상: 빨강 = 테두리 조각, 파랑 = 가운데(fill). 실제 손그림 대신 판별이 쉬운 단색 그림을 써요. */
+.t { width: 140px; height: 64px; box-sizing: border-box; }
+/* 주의: border 단축 속성은 border-image까지 초기화해요. 그래서 border-image는 항상 border 뒤에, 같은 규칙에 써요. */
+.img { --img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Crect width='30' height='30' fill='%23e5484d'/%3E%3Crect x='10' y='10' width='10' height='10' fill='%233b82f6'/%3E%3C/svg%3E"); }
+
+/* 3: 테두리 없는 요소 */
+#c3a { border: 10px solid transparent; border-image-source: var(--img); border-image-slice: 10 fill; border-image-repeat: stretch; border-image-width: 10px; }
+#c3b { border: none; border-image-source: var(--img); border-image-slice: 10 fill; border-image-repeat: stretch; border-image-width: 10px; }
+#c3c { border: 0 solid transparent; border-image-source: var(--img); border-image-slice: 10 fill; border-image-repeat: stretch; border-image-width: 10px; }
+#c3d { border: none; border-image-source: var(--img); border-image-slice: 10 fill; border-image-repeat: stretch; border-image-width: 10px; border-image-outset: 6px; }
+
+/* 4: overflow. 대상은 테두리 2px, 그림은 바깥으로 6px 나가요(outset). 점선은 부모 상자예요. */
+.p { outline: 1.5px dashed #8a93a6; outline-offset: 0; }
+.o { border: 2px solid transparent; border-image-source: var(--img); border-image-slice: 10 fill; border-image-repeat: stretch; border-image-width: 10px; border-image-outset: 6px; }
+#p4a { overflow: visible; padding: 0; }
+#p4b { overflow: hidden; padding: 0; }
+#p4c { overflow: hidden; padding: 8px; }
+#p4d { overflow: clip; overflow-clip-margin: 8px; padding: 0; }
+#p4e { overflow: auto; padding: 0; }
+#p4f { overflow: visible; padding: 0; }
+#c4f { overflow: hidden; border-radius: 12px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>border-image 경계 테스트</h1>
+    <p>A 방식에서 확인이 필요한 두 가지를 재현했어요. 판별하기 쉽도록 손그림 대신 단색 그림을 써요. 빨강은 테두리 조각, 파랑은 가운데 채움(<code>fill</code>)이에요. "Chromium 측정"은 제가 headless Chromium에서 픽셀을 읽어 확인한 결과예요. Safari에서는 같은 그림이 나오는지 눈으로 비교해주세요.</p>
+  </header>
+
+  <section>
+    <h2>3. 테두리 없는 요소에서 <code>border-image</code>가 그려지는지</h2>
+    <p>거친 단색이나 형광펜을 <code>border: none</code>인 요소에 쓰는 경우예요. <code>border-image-width</code>를 px로 따로 주면 원래 테두리 두께와 상관없이 그려지는지 봐요.</p>
+    <div class="legend"><span><i style="background:#e5484d"></i>테두리 조각</span><span><i style="background:#3b82f6"></i>가운데 채움</span></div>
+    <div class="grid">
+      <div class="case"><h3><span class="id">3A</span>기준: 투명 테두리 10px</h3><pre>border: 10px solid transparent;</pre><div class="stage"><div class="t img" id="c3a"></div></div><div class="expect">기대: 빨간 테두리 + 파란 가운데</div><div class="result" data-for="c3a"></div></div>
+      <div class="case"><h3><span class="id">3B</span><code>border: none</code></h3><pre>border: none;
+border-image-width: 10px;</pre><div class="stage"><div class="t img" id="c3b"></div></div><div class="expect">기대: 3A와 같으면 통과</div><div class="result" data-for="c3b"></div></div>
+      <div class="case"><h3><span class="id">3C</span>두께 0 투명 테두리</h3><pre>border: 0 solid transparent;
+border-image-width: 10px;</pre><div class="stage"><div class="t img" id="c3c"></div></div><div class="expect">기대: 3A와 같으면 통과</div><div class="result" data-for="c3c"></div></div>
+      <div class="case"><h3><span class="id">3D</span><code>border: none</code> + 바깥으로 6px</h3><pre>border: none;
+border-image-width: 10px;
+border-image-outset: 6px;</pre><div class="stage"><div class="t img" id="c3d"></div></div><div class="expect">기대: 빨강이 상자 바깥 6px까지</div><div class="result" data-for="c3d"></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 부모의 <code>overflow</code>가 바깥으로 나간 선을 자르는지</h2>
+    <p>대상 요소는 그림이 상자 바깥으로 6px 나가요(<code>border-image-outset</code>). 점선이 부모 상자이고, 대상은 부모 안쪽 끝에 딱 붙어 있어요. 4F는 부모가 아니라 요소 자신에 <code>overflow: hidden</code>이 있는 경우로, 이미지가 든 둥근 카드에서 흔한 패턴이에요.</p>
+    <div class="grid">
+      <div class="case"><h3><span class="id">4A</span>기준: 부모 overflow 없음</h3><pre>부모 { overflow: visible }</pre><div class="stage"><div class="p" id="p4a"><div class="t img o" id="c4a"></div></div></div><div class="expect">기대: 바깥 6px 보임</div><div class="result" data-for="c4a"></div></div>
+      <div class="case"><h3><span class="id">4B</span>부모 overflow: hidden</h3><pre>부모 { overflow: hidden }</pre><div class="stage"><div class="p" id="p4b"><div class="t img o" id="c4b"></div></div></div><div class="expect">예상: 바깥이 잘림</div><div class="result" data-for="c4b"></div></div>
+      <div class="case"><h3><span class="id">4C</span>부모 hidden + 여백 8px</h3><pre>부모 { overflow: hidden;
+       padding: 8px }</pre><div class="stage"><div class="p" id="p4c"><div class="t img o" id="c4c"></div></div></div><div class="expect">기대: 여백 안이라 안 잘림</div><div class="result" data-for="c4c"></div></div>
+      <div class="case"><h3><span class="id">4D</span>부모 overflow: clip + 여유 8px</h3><pre>부모 { overflow: clip;
+       overflow-clip-margin: 8px }</pre><div class="stage"><div class="p" id="p4d"><div class="t img o" id="c4d"></div></div></div><div class="expect">기대: 여유만큼 안 잘림 (대안 후보)</div><div class="result" data-for="c4d"></div></div>
+      <div class="case"><h3><span class="id">4E</span>부모가 스크롤 영역</h3><pre>부모 { overflow: auto }</pre><div class="stage"><div class="p" id="p4e"><div class="t img o" id="c4e"></div></div></div><div class="expect">예상: 바깥이 잘림</div><div class="result" data-for="c4e"></div></div>
+      <div class="case"><h3><span class="id">4F</span>요소 자신이 overflow: hidden</h3><pre>요소 { overflow: hidden;
+       border-radius: 12px }</pre><div class="stage"><div class="p" id="p4f"><div class="t img o" id="c4f"></div></div></div><div class="expect">기대: 자기 테두리 그림은 안 잘림</div><div class="result" data-for="c4f"></div></div>
+    </div>
+  </section>
+</div>
+<script>
+  // Filled in at build time from the headless Chromium measurement.
+  const RESULTS = /*RESULTS*/{};
+  document.querySelectorAll('.result').forEach((el) => {
+    const r = RESULTS[el.dataset.for];
+    if (!r) return;
+    el.textContent = 'Chromium 측정: ' + r.text;
+    el.classList.add(r.kind);
+  });
+</script>

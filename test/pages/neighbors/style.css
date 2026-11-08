@@ -1,0 +1,21 @@
+/* M2 example: the same border on many elements, nested so own, parent and grandparent positions vary. */
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
+.page { width: 960px; margin: 0 auto; padding: 24px; display: grid; gap: 28px; box-sizing: border-box; }
+
+/* Three groups of three identical cards: page > .groups > .group > .card. */
+.groups { display: grid; grid-template-columns: repeat(3, 280px); gap: 24px; }
+.group { display: grid; grid-template-columns: repeat(3, 80px); gap: 20px; }
+.card { width: 80px; height: 64px; box-sizing: border-box; padding: 8px; border: 2px solid #e5484d; }
+
+/* Twelve list items in a row of siblings. */
+.items { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(6, 120px); gap: 16px; }
+.item { height: 40px; box-sizing: border-box; padding: 6px 10px; border: 1px solid #e5484d; border-radius: 6px; }
+
+/* Complete :hover rule: same shape, other colour. */
+.buttons { display: flex; gap: 16px; }
+.hb { width: 120px; height: 40px; font: inherit; background: transparent; color: inherit; border: 2px solid #e5484d; border-radius: 6px; }
+.hb:hover { border: 2px solid #3b82f6; border-radius: 6px; }
+
+/* A pseudo-element border keeps the base drawing. */
+.pseudo { width: 200px; }
+.pseudo::before { content: ""; display: block; height: 48px; border: 2px solid #e5484d; }

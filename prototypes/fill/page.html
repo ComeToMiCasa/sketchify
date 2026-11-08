@@ -1,0 +1,116 @@
+<title>Sketch Fill Methods</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: 컨트롤 바 → 채움 방식별 행(설명 + 종이 무대) */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --ink: #1b2130;
+  --muted: #5d6577;
+  --line: #d3d7df;
+  --accent: #2f6fe4;
+  --good: #1f7a4d;
+  --bad: #b3401f;
+  --paper: #fbfbf8;
+  --paper-ink: #1d2433;
+  --paper-muted: #5a6172;
+  --f-display: "Gaegu", cursive;
+  --f-body: "IBM Plex Sans KR", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14171d; --surface: #1c2029; --ink: #e7eaf0; --muted: #9aa2b2; --line: #2e3442; --accent: #7ea6ff; --good: #5fcf96; --bad: #ff8a66; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #14171d; --surface: #1c2029; --ink: #e7eaf0; --muted: #9aa2b2; --line: #2e3442; --accent: #7ea6ff; --good: #5fcf96; --bad: #ff8a66; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+header h1 { font-family: var(--f-display); font-size: 36px; line-height: 1.05; margin: 0 0 8px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 72ch; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.controls label, .ctl { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.controls label { cursor: pointer; }
+.controls input[type=range] { width: 160px; accent-color: var(--accent); }
+.controls input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+.controls input[type=color] { width: 32px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
+.controls output { font-family: var(--f-mono); font-size: 13px; color: var(--muted); min-width: 5ch; font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { font: inherit; font-size: 13px; padding: 4px 10px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+.row { display: grid; grid-template-columns: minmax(0, 250px) minmax(0, 1fr); gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; } }
+.row h2 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+.row .num { font-family: var(--f-mono); color: var(--muted); font-weight: 400; margin-right: 6px; }
+.row p { margin: 0 0 10px; font-size: 13.5px; color: var(--muted); }
+.traits { display: grid; gap: 4px; font-size: 13px; }
+.traits span::before { display: inline-block; width: 1.4em; font-weight: 600; }
+.ok { color: var(--good); } .ok::before { content: "✓"; }
+.no { color: var(--bad); } .no::before { content: "✗"; }
+
+.stage { min-width: 0; overflow-x: auto; background: var(--paper); border-radius: 8px; border: 1px solid var(--line); }
+.stage-inner { padding: 22px; display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; color: var(--paper-ink); font-size: 14px; }
+.zoomed .stage-inner { zoom: 2; }
+
+/* 비교 대상 */
+.wrap { --stroke: #1d2433; --fill: #f6c445; --w: 300px; }
+.sk { position: relative; isolation: isolate; border: 2px solid transparent; --bw: 2px; }
+.fx { position: relative; isolation: isolate; }
+.fx:not(.sk) { --bw: 0px; }
+.sk::before, .fx::after { content: ""; position: absolute; pointer-events: none; }
+.sk::before { z-index: -1; background: transparent; }
+.fx::after { z-index: -2; inset: calc(-1 * var(--bw)); background: var(--fill); border-radius: inherit; }
+@supports (mask-border-source: none) or (-webkit-mask-box-image-source: none) { .sk::before { background: var(--stroke); } }
+.btn { font: inherit; font-weight: 600; color: inherit; padding: 8px 16px; background: transparent; cursor: pointer; }
+.tag { padding: 2px 10px; font-size: 13px; }
+.card { width: var(--w); padding: 14px; display: grid; gap: 6px; box-sizing: border-box; }
+.card h4 { margin: 0; font-size: 15px; }
+.card p { margin: 0; font-size: 13.5px; color: var(--paper-ink); }
+.side { display: grid; gap: 14px; width: 220px; }
+.progress { width: 220px; box-sizing: border-box; }
+.progress { height: 18px; padding: 3px; box-sizing: border-box; }
+.progress .in { height: 100%; }
+.chart { height: 90px; display: flex; align-items: flex-end; gap: 12px; padding: 0 4px; }
+.chart .col { flex: none; width: 44px; box-sizing: border-box; }
+.card.fixed { width: 260px; height: 96px; overflow: visible; }
+.row:not(.m4) .only-m4 { display: none; }
+.progress .in { width: 143px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/*GENERATED*/
+</style>
+
+<div class="wrap r0" id="root">
+  <header>
+    <h1>채움 방식 비교</h1>
+    <p>테두리는 확정한 방식(Rough.js 9-slice) 그대로 두고, 채움만 줄마다 바꿨어요. 채움 색은 CSS 변수라 색을 바꾸면 모든 방식에 바로 반영돼요. 카드 너비를 바꿔 크기가 달라져도 질감이 유지되는지 확인해보세요.</p>
+  </header>
+
+  <div class="controls">
+    <label for="w">카드 너비 <input id="w" type="range" min="180" max="560" value="300"><output id="wv">300px</output></label>
+    <span class="ctl">모서리 <span class="seg" role="group" aria-label="모서리" id="corner">
+      <button type="button" data-v="0" aria-pressed="true">각진</button>
+      <button type="button" data-v="12" aria-pressed="false">둥근 12px</button>
+    </span></span>
+    <label for="fc">채움 색 <input id="fc" type="color" value="#f6c445"></label>
+    <label for="z"><input id="z" type="checkbox"> 2배 확대</label>
+  </div>
+<!--ROWS-->
+</div>
+
+<script>
+  const root = document.getElementById('root');
+  const w = document.getElementById('w'), wv = document.getElementById('wv');
+  w.addEventListener('input', () => { root.style.setProperty('--w', w.value + 'px'); wv.textContent = w.value + 'px'; });
+  document.getElementById('fc').addEventListener('input', (e) => root.style.setProperty('--fill', e.target.value));
+  document.getElementById('z').addEventListener('change', (e) => root.classList.toggle('zoomed', e.target.checked));
+  const buttons = document.querySelectorAll('#corner button');
+  buttons.forEach((b) => b.addEventListener('click', () => {
+    buttons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    root.classList.remove('r0', 'r12');
+    root.classList.add('r' + b.dataset.v);
+  }));
+</script>

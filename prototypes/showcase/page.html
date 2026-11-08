@@ -1,0 +1,337 @@
+<title>Sketch Stroke Methods</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Pen+Script&family=Kalam:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: 컨트롤 바 → 종이 무대(가상의 캠페인 관리 화면) → 메모 */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --ink: #1b2130;
+  --muted: #5d6577;
+  --line: #d3d7df;
+  --accent: #2f6fe4;
+  --paper: #fbfbf8;
+  --paper-ink: #1d2433;
+  --paper-muted: #5a6172;
+  --link: #2f55d4;
+  --f-display: "Gaegu", cursive;
+  --f-body: "IBM Plex Sans KR", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14171d; --surface: #1c2029; --ink: #e7eaf0; --muted: #9aa2b2; --line: #2e3442; --accent: #7ea6ff; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #14171d; --surface: #1c2029; --ink: #e7eaf0; --muted: #9aa2b2; --line: #2e3442; --accent: #7ea6ff; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+header h1 { font-family: var(--f-display); font-size: 36px; line-height: 1.05; margin: 0 0 8px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 72ch; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.controls label { display: flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+.controls input[type=range] { width: 160px; accent-color: var(--accent); }
+.controls input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+.controls input[type=color] { width: 32px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
+.controls output { font-family: var(--f-mono); font-size: 13px; color: var(--muted); min-width: 5ch; font-variant-numeric: tabular-nums; }
+.ctl { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { font: inherit; font-size: 13px; padding: 4px 10px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.note { font-size: 13px; color: var(--muted); margin: 0; }
+.note code { font-family: var(--f-mono); font-size: 12px; }
+
+/* ---------- 종이 무대: 손그림으로 그려지는 쪽 ---------- */
+.paper { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.zoomed .demo { zoom: 2; }
+.demo { --stroke: #1d2433; max-width: var(--cw, 920px); margin: 0 auto; padding: 24px 22px 32px; color: var(--paper-ink); font-size: 14px; display: grid; gap: 28px; box-sizing: border-box; }
+.demo h3 { margin: 0 0 12px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--paper-muted); font-weight: 600; }
+.demo h4 { margin: 0; font-size: 16px; }
+.demo p { margin: 0; }
+
+.sk { position: relative; isolation: isolate; border: 2px solid transparent; background: transparent; }
+.sk::before { content: ""; position: absolute; z-index: -1; pointer-events: none; background: transparent; }
+.sk-line { position: relative; isolation: isolate; border: 0 solid transparent; }
+.sk-line::before { content: ""; position: absolute; left: 0; right: 0; z-index: -1; pointer-events: none; background: transparent; }
+.avatar { position: relative; isolation: isolate; flex: none; width: 44px; height: 44px; border: 2px solid transparent; border-radius: 50%; box-sizing: border-box; display: grid; place-items: center; font-weight: 600; font-size: 13px; }
+.avatar::before { content: ""; position: absolute; z-index: -1; pointer-events: none; background: transparent; }
+@supports (mask-border-source: none) or (-webkit-mask-box-image-source: none) {
+  .sk::before { background: var(--stroke); }
+}
+.sk-line::before, .avatar::before { background: var(--stroke); }
+
+/* 내비게이션 */
+.topnav { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 12px; }
+.topnav .logo { font-weight: 700; font-size: 17px; }
+.topnav nav { display: flex; gap: 16px; flex-wrap: wrap; }
+.topnav a { color: inherit; text-decoration: none; }
+.topnav a[aria-current] { font-weight: 600; }
+
+/* 버튼, 태그 */
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { font: inherit; font-weight: 600; color: inherit; padding: 8px 16px; cursor: pointer; }
+.btn.icon { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; font-size: 18px; line-height: 1; }
+.tag { padding: 2px 10px; font-size: 13px; }
+
+/* 카드 */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 18px; }
+.card { padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card .head { display: flex; gap: 12px; align-items: center; }
+.card .meta { font-size: 12.5px; color: var(--paper-muted); }
+.card hr { margin: 2px 0; height: 0; overflow: visible; }
+.card .foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sk-link { color: var(--link); text-decoration: none; background-repeat: no-repeat; background-position: left bottom; background-size: 100% 8px; padding-bottom: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+/* 폼 */
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px 18px; }
+.form .full { grid-column: 1 / -1; }
+.form label.lbl { display: grid; gap: 6px; font-weight: 500; }
+.field { font: inherit; color: inherit; background-color: transparent; border: 2px solid transparent; padding: 8px 10px; width: 100%; box-sizing: border-box; min-width: 0; }
+textarea.field { min-height: 88px; resize: vertical; }
+select.field { appearance: none; -webkit-appearance: none; background-repeat: no-repeat; background-position: right 10px center; background-size: 16px 14px; padding-right: 36px; }
+.choices { display: flex; flex-wrap: wrap; gap: 10px 22px; }
+.check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
+.check input { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin: 0; background-repeat: no-repeat; background-size: 100% 100%; cursor: pointer; flex: none; }
+.field:focus-visible, .check input:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* 진행 상황: 크기를 px로 정해서, 컴파일러가 빗금을 정밀하게 그릴 수 있는 요소들 */
+.demo { --fill: #f6c445; }
+.stats { display: flex; flex-wrap: wrap; gap: 24px 48px; align-items: flex-end; }
+.stat { display: grid; gap: 8px; }
+.stat .meta { font-size: 12.5px; color: var(--paper-muted); }
+.progress { width: 274px; padding: 3px; box-sizing: content-box; }
+.progress .bar { width: 186px; height: 10px; }
+.chart { display: flex; align-items: flex-end; gap: 14px; height: 100px; }
+.chart .col { width: 36px; box-sizing: border-box; flex: none; }
+
+/* 목록 */
+.list { list-style: none; margin: 0; padding: 0; display: grid; }
+.list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 2px; flex-wrap: wrap; }
+.list li .when { font-size: 12.5px; color: var(--paper-muted); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 글꼴 미리보기 (MVP 범위 밖) */
+.f-gaegu { font-family: "Gaegu", "IBM Plex Sans KR", cursive; font-size: 16px; }
+.f-pen { font-family: "Nanum Pen Script", "IBM Plex Sans KR", cursive; font-size: 19px; }
+.f-kalam { font-family: "Kalam", "Gaegu", cursive; font-size: 15px; }
+.f-gaegu h3, .f-pen h3, .f-kalam h3 { letter-spacing: 0.02em; }
+
+/*GENERATED*/
+</style>
+
+<div class="wrap" id="root">
+  <header>
+    <h1>손그림 UI 예시</h1>
+    <p>확정한 방식(Rough.js 9-slice, 변은 길이 방향으로만 늘이기)으로 그린 화면이에요. 모든 SVG는 빌드 때 만들어졌고, 이웃한 요소끼리는 원본 3개와 뒤집기를 섞어 모양이 달라요. 콘텐츠 너비를 바꿔 크기가 가변인 요소를 확인해보세요.</p>
+  </header>
+
+  <div class="controls">
+    <label for="cw">콘텐츠 너비 <input id="cw" type="range" min="320" max="1100" value="920"><output id="cwv">920px</output></label>
+    <span class="ctl">두께 <span class="seg" role="group" aria-label="선 두께" id="width">
+      <button type="button" data-v="1" aria-pressed="false">1px</button>
+      <button type="button" data-v="2" aria-pressed="true">2px</button>
+      <button type="button" data-v="4" aria-pressed="false">4px</button>
+    </span></span>
+    <span class="ctl">거칠기 <span class="seg" role="group" aria-label="거칠기 프리셋" id="preset">
+      <button type="button" data-v="subtle" aria-pressed="false">subtle</button>
+      <button type="button" data-v="normal" aria-pressed="true">normal</button>
+      <button type="button" data-v="messy" aria-pressed="false">messy</button>
+    </span></span>
+    <span class="ctl">모서리 <span class="seg" role="group" aria-label="모서리" id="corner">
+      <button type="button" data-v="0" aria-pressed="true">각진</button>
+      <button type="button" data-v="12" aria-pressed="false">둥근 12px</button>
+    </span></span>
+    <span class="ctl">글꼴 <span class="seg" role="group" aria-label="글꼴 미리보기" id="font">
+      <button type="button" data-v="base" aria-pressed="true">기본</button>
+      <button type="button" data-v="gaegu" aria-pressed="false">개구</button>
+      <button type="button" data-v="pen" aria-pressed="false">나눔손글씨 펜</button>
+      <button type="button" data-v="kalam" aria-pressed="false">Kalam</button>
+    </span></span>
+    <span class="ctl">언어 <span class="seg" role="group" aria-label="예시 화면 언어" id="lang">
+      <button type="button" data-v="ko" aria-pressed="true">한국어</button>
+      <button type="button" data-v="en" aria-pressed="false">English</button>
+    </span></span>
+    <span class="ctl">채움 <span class="seg" role="group" aria-label="채움 방식" id="fill">
+      <button type="button" data-v="none" aria-pressed="false">없음</button>
+      <button type="button" data-v="solid" aria-pressed="true">단색</button>
+      <button type="button" data-v="rough" aria-pressed="false">거친 단색</button>
+      <button type="button" data-v="hatch" aria-pressed="false">빗금</button>
+      <button type="button" data-v="marker" aria-pressed="false">형광펜</button>
+    </span></span>
+    <span class="ctl">빗금 끝 <span class="seg" role="group" aria-label="빗금 끝 모양" id="ends">
+      <button type="button" data-v="taper" aria-pressed="true">가늘게</button>
+      <button type="button" data-v="square" aria-pressed="false">네모</button>
+    </span></span>
+    <label for="fc">채움 색 <input id="fc" type="color" value="#f6c445"></label>
+    <label for="c">선 색 <input id="c" type="color" value="#1d2433"></label>
+    <label for="z"><input id="z" type="checkbox"> 2배 확대</label>
+    <p class="note">선 색은 CSS 변수라 박스, 구분선, 아바타에 바로 반영돼요. 인풋, 체크박스, 밑줄처럼 요소 자체에 그리는 것들은 명세대로 색이 SVG에 고정돼 있어요. 글꼴은 미리보기용이고 MVP 기능이 아니에요. 채움은 강조 버튼, 일부 태그, 진행 막대, 차트에만 들어가요. 진행 막대와 차트 막대는 크기가 정해져 있어서 빗금을 선마다 계산해서 그려요.</p>
+  </div>
+
+  <div class="paper">
+    <div class="demo p-normal w2 r0 f-base fill-solid ends-taper" id="demo">
+      <div class="topnav sk-line">
+        <span class="logo">Moodboard</span>
+        <nav aria-label="예시 내비게이션"><a href="#" aria-current="page">캠페인</a><a href="#">경쟁사 광고</a><a href="#">리포트</a><a href="#">설정</a></nav>
+      </div>
+
+      <section>
+        <h3>버튼과 태그</h3>
+        <div class="row">
+          <button type="button" class="sk fx btn">확인</button>
+          <button type="button" class="sk btn">취소</button>
+          <button type="button" class="sk btn">변경 사항 저장 후 닫기</button>
+          <button type="button" class="sk btn icon" aria-label="추가">+</button>
+          <button type="button" class="sk btn icon" aria-label="더 보기">⋯</button>
+        </div>
+        <div class="row" style="margin-top: 14px">
+          <span class="sk tag">립</span><span class="sk tag">틴트</span><span class="sk tag">쿠션</span><span class="sk tag">선크림</span>
+          <span class="sk fx tag">인스타그램</span><span class="sk tag">틱톡</span><span class="sk tag">유튜브 쇼츠</span><span class="sk tag">20대 여성</span>
+        </div>
+      </section>
+
+      <section>
+        <h3>카드</h3>
+        <div class="cards">
+          <article class="sk card">
+            <div class="head"><span class="avatar">LR</span><div><h4>가을 립 컬렉션</h4><div class="meta">인스타그램 · 틱톡</div></div></div>
+            <p>경쟁사 광고 12건을 수집했고 시안 3종이 검토 대기 중이에요. <a class="sk-link" href="#">수집한 광고 보기</a></p>
+            <hr class="sk-line">
+            <div class="foot"><span class="meta">마감 10월 31일</span><span class="sk fx tag">진행 중</span></div>
+          </article>
+          <article class="sk card">
+            <div class="head"><span class="avatar">CU</span><div><h4>쿠션 리뉴얼</h4><div class="meta">유튜브 쇼츠</div></div></div>
+            <p>새 패키지 촬영본이 도착했어요. 썸네일 후보를 골라주세요.</p>
+            <hr class="sk-line">
+            <div class="foot"><span class="meta">마감 11월 7일</span><span class="sk fx tag">검토</span></div>
+          </article>
+          <article class="sk card">
+            <div class="head"><span class="avatar">SC</span><div><h4>여름 선크림 회고</h4><div class="meta">리포트</div></div></div>
+            <p>도달률은 목표보다 18% 높았고, 저장 수는 경쟁사 평균의 두 배였어요. 다음 시즌 브리프에 반영할 항목을 <a class="sk-link" href="#">회고 문서에서 확인</a>할 수 있어요.</p>
+            <hr class="sk-line">
+            <div class="foot"><span class="meta">완료</span><span class="sk tag">보관</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h3>진행 상황</h3>
+        <div class="stats">
+          <div class="stat">
+            <div class="meta">캠페인 진행률 68%</div>
+            <div class="sk progress" role="img" aria-label="캠페인 진행률 68%"><div class="fx bar" data-x="prog"></div></div>
+          </div>
+          <div class="stat">
+            <div class="meta">채널별 도달</div>
+            <div class="chart" role="img" aria-label="채널별 도달 막대 차트">
+              <div class="sk fx col" data-x="c1" style="height: 44px"></div><div class="sk fx col" data-x="c2" style="height: 80px"></div><div class="sk fx col" data-x="c3" style="height: 60px"></div><div class="sk fx col" data-x="c4" style="height: 96px"></div><div class="sk fx col" data-x="c5" style="height: 70px"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>폼</h3>
+        <form class="form" onsubmit="event.preventDefault()">
+          <label class="lbl" for="f-name">캠페인 이름<input class="field" id="f-name" value="겨울 보습 라인 런칭"></label>
+          <label class="lbl" for="f-ch">주 채널<select class="field" id="f-ch"><option>인스타그램</option><option>틱톡</option><option>유튜브 쇼츠</option></select></label>
+          <label class="lbl full" for="f-brief">브리프<textarea class="field" id="f-brief">건조한 겨울 피부에 맞춘 보습 루틴을 짧은 영상 위주로 보여주기. 경쟁사 대비 성분 설명을 쉽게.</textarea></label>
+          <div class="full choices" role="group" aria-label="게재 옵션">
+            <label class="check" for="o1"><input type="checkbox" id="o1" checked> 경쟁사 광고 자동 수집</label>
+            <label class="check" for="o2"><input type="checkbox" id="o2"> 주간 리포트 메일</label>
+            <label class="check" for="o3"><input type="checkbox" id="o3" checked> 시안 승인 알림</label>
+          </div>
+          <div class="full choices" role="radiogroup" aria-label="예산 방식">
+            <label class="check" for="b1"><input type="radio" name="budget" id="b1" checked> 일일 예산</label>
+            <label class="check" for="b2"><input type="radio" name="budget" id="b2"> 총 예산</label>
+            <label class="check" for="b3"><input type="radio" name="budget" id="b3"> 자동 최적화</label>
+          </div>
+          <div class="full row"><button type="submit" class="sk fx btn">저장</button><button type="button" class="sk btn">미리 보기</button></div>
+        </form>
+      </section>
+
+      <section>
+        <h3>목록</h3>
+        <ul class="list">
+          <li class="sk-line"><span>경쟁사 A · 립 틴트 릴스 3건 수집</span><span class="when">10분 전</span></li>
+          <li class="sk-line"><span>시안 2번에 코멘트 4개</span><span class="when">1시간 전</span></li>
+          <li class="sk-line"><span>주간 리포트 생성 완료</span><span class="when">어제</span></li>
+          <li class="sk-line"><span>쿠션 리뉴얼 캠페인 생성</span><span class="when">3일 전</span></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+  const demo = document.getElementById('demo'), wrap = document.getElementById('root');
+  const cw = document.getElementById('cw'), cwv = document.getElementById('cwv');
+  cw.addEventListener('input', () => { demo.style.setProperty('--cw', cw.value + 'px'); cwv.textContent = cw.value + 'px'; });
+  document.getElementById('c').addEventListener('input', (e) => demo.style.setProperty('--stroke', e.target.value));
+  document.getElementById('z').addEventListener('change', (e) => wrap.classList.toggle('zoomed', e.target.checked));
+  const segment = (id, prefix, values) => {
+    const buttons = document.querySelectorAll(`#${id} button`);
+    buttons.forEach((b) => b.addEventListener('click', () => {
+      buttons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      values.forEach((v) => demo.classList.remove(prefix + v));
+      demo.classList.add(prefix + b.dataset.v);
+    }));
+  };
+  segment('width', 'w', ['1', '2', '4']);
+  segment('preset', 'p-', ['subtle', 'normal', 'messy']);
+  segment('corner', 'r', ['0', '12']);
+  segment('font', 'f-', ['base', 'gaegu', 'pen', 'kalam']);
+  segment('fill', 'fill-', ['none', 'solid', 'rough', 'hatch', 'marker']);
+  segment('ends', 'ends-', ['taper', 'square']);
+  document.getElementById('fc').addEventListener('input', (e) => demo.style.setProperty('--fill', e.target.value));
+
+  // Example-screen language. Korean text in the markup is the source; English comes from this table.
+  const EN = {
+    '캠페인': 'Campaigns', '경쟁사 광고': 'Competitor ads', '리포트': 'Reports', '설정': 'Settings',
+    '버튼과 태그': 'Buttons and tags', '카드': 'Cards', '폼': 'Form', '목록': 'List',
+    '확인': 'OK', '취소': 'Cancel', '변경 사항 저장 후 닫기': 'Save changes and close', '추가': 'Add', '더 보기': 'More',
+    '립': 'Lip', '틴트': 'Tint', '쿠션': 'Cushion', '선크림': 'Sunscreen', '인스타그램': 'Instagram', '틱톡': 'TikTok',
+    '유튜브 쇼츠': 'YouTube Shorts', '20대 여성': 'Women, 20s',
+    '가을 립 컬렉션': 'Fall lip collection', '인스타그램 · 틱톡': 'Instagram · TikTok',
+    '경쟁사 광고 12건을 수집했고 시안 3종이 검토 대기 중이에요.': 'We collected 12 competitor ads, and 3 drafts are waiting for review.',
+    '수집한 광고 보기': 'See collected ads', '마감 10월 31일': 'Due Oct 31', '진행 중': 'In progress',
+    '쿠션 리뉴얼': 'Cushion relaunch', '새 패키지 촬영본이 도착했어요. 썸네일 후보를 골라주세요.': 'The new packaging shots are in. Pick the thumbnail candidates.',
+    '마감 11월 7일': 'Due Nov 7', '검토': 'Review', '여름 선크림 회고': 'Summer sunscreen retro',
+    '도달률은 목표보다 18% 높았고, 저장 수는 경쟁사 평균의 두 배였어요. 다음 시즌 브리프에 반영할 항목을': 'Reach beat the goal by 18%, and saves were double the competitor average.',
+    '회고 문서에서 확인': 'Check the retro doc', '할 수 있어요.': ' for what goes into next season’s brief.',
+    '완료': 'Done', '보관': 'Archived',
+    '캠페인 이름': 'Campaign name', '겨울 보습 라인 런칭': 'Winter moisture line launch', '주 채널': 'Main channel', '브리프': 'Brief',
+    '건조한 겨울 피부에 맞춘 보습 루틴을 짧은 영상 위주로 보여주기. 경쟁사 대비 성분 설명을 쉽게.': 'Show a moisture routine for dry winter skin, mostly in short videos. Explain the ingredients more simply than competitors do.',
+    '경쟁사 광고 자동 수집': 'Auto-collect competitor ads', '주간 리포트 메일': 'Weekly report email', '시안 승인 알림': 'Draft approval alerts',
+    '게재 옵션': 'Posting options', '예산 방식': 'Budget type',
+    '일일 예산': 'Daily budget', '총 예산': 'Total budget', '자동 최적화': 'Auto-optimize', '저장': 'Save', '미리 보기': 'Preview',
+    '경쟁사 A · 립 틴트 릴스 3건 수집': 'Collected 3 lip tint reels from Competitor A', '10분 전': '10 min ago',
+    '시안 2번에 코멘트 4개': '4 comments on draft 2', '1시간 전': '1 hour ago', '주간 리포트 생성 완료': 'Weekly report ready', '어제': 'Yesterday',
+    '쿠션 리뉴얼 캠페인 생성': 'Created the cushion relaunch campaign', '3일 전': '3 days ago', '예시 내비게이션': 'Example navigation',
+    '진행 상황': 'Progress', '캠페인 진행률 68%': 'Campaign progress 68%', '채널별 도달': 'Reach by channel', '채널별 도달 막대 차트': 'Reach by channel bar chart',
+  };
+  const targets = [];
+  const walker = document.createTreeWalker(demo, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const key = n.nodeValue.trim();
+    if (EN[key]) targets.push({ get: () => n.nodeValue, set: (v) => (n.nodeValue = v), ko: n.nodeValue, en: n.nodeValue.replace(key, EN[key]) });
+  }
+  demo.querySelectorAll('input[value], textarea').forEach((el) => {
+    const key = el.value.trim();
+    if (EN[key]) targets.push({ set: (v) => (el.value = v), ko: el.value, en: EN[key] });
+  });
+  demo.querySelectorAll('[aria-label]').forEach((el) => {
+    const key = el.getAttribute('aria-label');
+    if (EN[key]) targets.push({ set: (v) => el.setAttribute('aria-label', v), ko: key, en: EN[key] });
+  });
+  // Keep a space between the English sentence and the link that follows it.
+  targets.forEach((t) => { if (/\s$/.test(t.ko) && !/\s$/.test(t.en)) t.en += ' '; if (/^\s/.test(t.ko) && !/^\s/.test(t.en)) t.en = ' ' + t.en; });
+  document.querySelectorAll('#lang button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#lang button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    targets.forEach((t) => t.set(t[b.dataset.v]));
+    demo.lang = b.dataset.v;
+  }));
+  document.querySelectorAll('.demo a').forEach((a) => a.addEventListener('click', (e) => e.preventDefault()));
+</script>

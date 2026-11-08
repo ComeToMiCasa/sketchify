@@ -1,0 +1,227 @@
+// Reads each rule's border declarations, in order, into one state per rule.
+// Only reads the PostCSS tree; emit/ is the only place that changes it.
+import type { ChildNode, Container, Declaration, Root, Rule } from 'postcss';
+import type { Result } from '../report/diagnostics';
+import { type SelectorEntry, parseSelectorList, resolveNested } from './selectors';
+import type { Condition } from './variables';
+import {
+  type Color,
+  type Corner,
+  type Radius,
+  SIDES,
+  type Side,
+  type Style,
+  type Width,
+  parseBorderRadius,
+  parseBorderShorthand,
+  parseBoxValue,
+  parseColor,
+  parseCornerRadius,
+  parseStyle,
+  parseWidth,
+} from './values';
+
+/** A border part this rule declares, or `unset` when the rule says nothing about it. */
+export type Declared<T> = { readonly kind: 'unset' } | T;
+
+export type SideState = {
+  readonly width: Declared<Width>;
+  readonly style: Declared<Style>;
+  readonly color: Declared<Color>;
+};
+
+export type BorderState = {
+  readonly sides: Readonly<Record<Side, SideState>>;
+  readonly radius: Readonly<Record<Corner, Declared<Radius>>>;
+  /** A declaration this version cannot place on physical sides (logical properties). */
+  readonly unsupported: boolean;
+  /** The rule already sets `border-image` or one of its longhands. */
+  readonly hasBorderImage: boolean;
+  /** Any border declaration is `!important`. */
+  readonly important: boolean;
+};
+
+export type RuleFacts = {
+  readonly rule: Rule;
+  readonly border: BorderState;
+  /** The last width/style/colour declaration; new declarations go after it. */
+  readonly lastBorderDecl: Declaration | undefined;
+  /** The selector (or one in its list) targets a pseudo-element such as `::before`. */
+  readonly pseudoElement: boolean;
+  /** The rule's declarations in order, for re-reading border values once `var()` is resolved. */
+  readonly decls: ReadonlyArray<Declaration>;
+  /** The `--sketch` control declaration, if any. */
+  readonly sketch: SketchControl;
+  /** The complex selectors of the rule, nesting resolved (CSS nesting `&`). */
+  readonly entries: ReadonlyArray<SelectorEntry>;
+  /** Position in source order among all style rules. */
+  readonly order: number;
+  /** At-rules around the rule, outermost first, including `@layer`. */
+  readonly atRules: ReadonlyArray<Condition>;
+  /**
+   * The rule sets only some of a side's width, style and colour (`border-color: red`), so it
+   * needs the rest from another rule. A side shorthand (`border-bottom: 1px solid red`) is not
+   * partial; neither is a rule that only changes the radius.
+   */
+  readonly partial: boolean;
+};
+
+/** `--sketch: off` leaves the rule alone; any other value is a mistake. */
+export type SketchControl =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'off'; readonly decl: Declaration }
+  | { readonly kind: 'invalid'; readonly decl: Declaration };
+
+const UNSET = { kind: 'unset' } as const;
+const EMPTY_SIDE: SideState = { width: UNSET, style: UNSET, color: UNSET };
+
+export const EMPTY_BORDER: BorderState = {
+  sides: { top: EMPTY_SIDE, right: EMPTY_SIDE, bottom: EMPTY_SIDE, left: EMPTY_SIDE },
+  radius: { 'top-left': UNSET, 'top-right': UNSET, 'bottom-right': UNSET, 'bottom-left': UNSET },
+  unsupported: false,
+  hasBorderImage: false,
+  important: false,
+};
+
+type Part = keyof SideState;
+
+const setSides = (state: BorderState, sides: ReadonlyArray<Side>, patch: (side: Side) => Partial<SideState>): BorderState => ({
+  ...state,
+  sides: Object.fromEntries(
+    SIDES.map((side) => [side, sides.includes(side) ? { ...state.sides[side], ...patch(side) } : state.sides[side]]),
+  ) as Record<Side, SideState>,
+});
+
+const setPartPerSide = <T>(state: BorderState, part: Part, values: Readonly<Record<Side, T>> | undefined): BorderState =>
+  values ? setSides(state, SIDES, (side) => ({ [part]: values[side] })) : { ...state, unsupported: true };
+
+const UNKNOWN_COLOR = (css: string): Color => ({ kind: 'unknown', css });
+
+const SIDE_PROP = /^border-(top|right|bottom|left)$/;
+const SIDE_PART_PROP = /^border-(top|right|bottom|left)-(width|style|color)$/;
+const CORNER_PROP = /^border-(top-left|top-right|bottom-right|bottom-left)-radius$/;
+const LOGICAL_PROP = /^border-(block|inline)(-|$)|^border-(start|end)-(start|end)-radius$/;
+
+/** Whether a declaration feeds the border state: width, style, colour, radius or `border-image`. */
+export const isBorderProp = (prop: string): boolean => {
+  const p = prop.toLowerCase();
+  return isBorderLineProp(p) || p === 'border-radius' || CORNER_PROP.test(p) || LOGICAL_PROP.test(p) || p.startsWith('border-image');
+};
+
+/** Whether a declaration changes the border's width, style or colour (the parts the drawing replaces). */
+export const isBorderLineProp = (prop: string): boolean =>
+  prop === 'border' ||
+  prop === 'border-width' ||
+  prop === 'border-style' ||
+  prop === 'border-color' ||
+  SIDE_PROP.test(prop) ||
+  SIDE_PART_PROP.test(prop) ||
+  /^border-(block|inline)(-|$)/.test(prop);
+
+/** Applies one declaration to the state. Later declarations win, as in CSS. */
+export const applyDeclaration = (state: BorderState, prop: string, value: string, important: boolean): BorderState => {
+  const p = prop.toLowerCase();
+  const marked = isBorderLineProp(p) || p === 'border-radius' || CORNER_PROP.test(p) ? { ...state, important: state.important || important } : state;
+
+  if (p.startsWith('border-image')) return { ...marked, hasBorderImage: true };
+  if (LOGICAL_PROP.test(p)) return { ...marked, unsupported: true };
+  if (p === 'border') {
+    const parts = parseBorderShorthand(value);
+    return setSides(marked, SIDES, () => parts);
+  }
+  const sideMatch = SIDE_PROP.exec(p);
+  if (sideMatch?.[1]) {
+    const parts = parseBorderShorthand(value);
+    return setSides(marked, [sideMatch[1] as Side], () => parts);
+  }
+  if (p === 'border-width') return setPartPerSide(marked, 'width', parseBoxValue<Width>(value, parseWidth, { kind: 'unknown' }));
+  if (p === 'border-style') return setPartPerSide(marked, 'style', parseBoxValue<Style>(value, parseStyle, { kind: 'unknown' }));
+  if (p === 'border-color') return setPartPerSide(marked, 'color', parseBoxValue<Color>(value, parseColor, UNKNOWN_COLOR(value)));
+  const partMatch = SIDE_PART_PROP.exec(p);
+  if (partMatch?.[1] && partMatch[2]) {
+    const side = partMatch[1] as Side;
+    const part = partMatch[2] as Part;
+    const parsed = part === 'width' ? parseWidth(value.trim()) : part === 'style' ? parseStyle(value.trim()) : parseColor(value);
+    return setSides(marked, [side], () => ({ [part]: parsed }));
+  }
+  if (p === 'border-radius') return { ...marked, radius: parseBorderRadius(value) };
+  const cornerMatch = CORNER_PROP.exec(p);
+  if (cornerMatch?.[1]) {
+    const corner = cornerMatch[1] as Corner;
+    return { ...marked, radius: { ...marked.radius, [corner]: parseCornerRadius(value) } };
+  }
+  return state;
+};
+
+/** Where a style rule sits: its resolved selectors and the at-rules around it. */
+type Placed = { readonly rule: Rule; readonly selectors: ReadonlyArray<string>; readonly atRules: ReadonlyArray<Condition> };
+
+/** Style rules in source order, including nested ones, skipping `@keyframes` blocks. */
+const rulesIn = (container: Container, parents: ReadonlyArray<string> = [], atRules: ReadonlyArray<Condition> = []): ReadonlyArray<Placed> =>
+  (container.nodes ?? []).flatMap((node: ChildNode): ReadonlyArray<Placed> => {
+    if (node.type === 'rule') {
+      const selectors = resolveNested(parents, node.selector);
+      return [{ rule: node, selectors, atRules }, ...rulesIn(node, selectors, atRules)];
+    }
+    if (node.type === 'atrule') {
+      return /keyframes$/i.test(node.name) ? [] : rulesIn(node, parents, [...atRules, { name: node.name, params: node.params }]);
+    }
+    return [];
+  });
+
+const declarationsOf = (rule: Rule): ReadonlyArray<Declaration> =>
+  (rule.nodes ?? []).filter((node): node is Declaration => node.type === 'decl');
+
+// `::name`, or the four pseudo-elements CSS2 wrote with one colon.
+const PSEUDO_ELEMENT = /::|:(?:before|after|first-line|first-letter)(?![\w-])/i;
+
+/** Whether a selector targets a pseudo-element. A plain text check; full selector analysis comes in M4. */
+export const targetsPseudoElement = (selector: string): boolean => PSEUDO_ELEMENT.test(selector);
+
+/** Folds declarations (prop, value, importance) into a border state, in order. */
+export const borderOf = (decls: ReadonlyArray<{ readonly prop: string; readonly value: string; readonly important: boolean }>): BorderState =>
+  decls.reduce<BorderState>((state, decl) => applyDeclaration(state, decl.prop, decl.value, decl.important), EMPTY_BORDER);
+
+const sketchControlOf = (decls: ReadonlyArray<Declaration>): SketchControl => {
+  const decl = decls.filter((d) => d.prop.toLowerCase() === '--sketch').at(-1);
+  if (!decl) return { kind: 'none' };
+  return decl.value.trim().toLowerCase() === 'off' ? { kind: 'off', decl } : { kind: 'invalid', decl };
+};
+
+/** Whether some side is touched but not fully set (width, style and colour). */
+export const isPartial = (border: BorderState): boolean =>
+  !border.unsupported &&
+  SIDES.some((side) => {
+    const parts = Object.values(border.sides[side]) as ReadonlyArray<{ readonly kind: string }>;
+    return parts.some((part) => part.kind !== 'unset') && parts.some((part) => part.kind === 'unset');
+  });
+
+export const factsOfRule = (rule: Rule, placed: Omit<Placed, 'rule'> = { selectors: [rule.selector], atRules: [] }, order = 0): RuleFacts => {
+  const decls = declarationsOf(rule);
+  const border = borderOf(decls.map((decl) => ({ prop: decl.prop, value: decl.value, important: decl.important === true })));
+  const lastBorderDecl = decls.filter((decl) => isBorderLineProp(decl.prop.toLowerCase())).at(-1);
+  return {
+    rule,
+    border,
+    lastBorderDecl,
+    pseudoElement: targetsPseudoElement(rule.selector),
+    decls,
+    sketch: sketchControlOf(decls),
+    entries: placed.selectors.flatMap((selector) => parseSelectorList(selector)),
+    order,
+    atRules: placed.atRules,
+    partial: isPartial(border),
+  };
+};
+
+/** Whether the rule matters to borders: border declarations, variables (which borders may read) or `--sketch`. */
+const mattersToBorders = (facts: RuleFacts): boolean =>
+  facts.sketch.kind !== 'none' || facts.decls.some((decl) => isBorderProp(decl.prop) || decl.prop.startsWith('--'));
+
+/** Facts for every style rule that matters to borders, in source order. `@keyframes` are skipped. */
+export const collect = (root: Root): Result<ReadonlyArray<RuleFacts>> => ({
+  value: rulesIn(root)
+    .map((placed, order) => factsOfRule(placed.rule, placed, order))
+    .filter(mattersToBorders),
+  diagnostics: [],
+});

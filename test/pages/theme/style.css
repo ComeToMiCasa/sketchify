@@ -1,0 +1,28 @@
+/* M3 example: border colours from variables, with a dark-mode theme in a media query.
+   Light: red #e5484d, hover blue #3b82f6. Dark: green #22c55e, hover amber #f59e0b. */
+:root { --ink: #e5484d; --accent: #3b82f6; --line: var(--ink); --bw: 2px; }
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #22c55e; --accent: #f59e0b; }
+}
+
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
+.page { width: 960px; margin: 0 auto; padding: 24px; display: grid; gap: 24px; box-sizing: border-box; }
+.row { display: flex; gap: 20px; align-items: center; }
+.box { width: 140px; height: 72px; padding: 10px; box-sizing: border-box; }
+
+.root-var { border: 2px solid var(--ink); }
+.chain { border: var(--bw) solid var(--line); border-radius: 8px; }
+.fallback { border: 2px solid var(--missing, var(--ink)); }
+/* The rule's own value wins over the theme, so this one stays red in dark mode. */
+.own { --own: #e5484d; border: 2px solid var(--own); }
+
+.hb { width: 140px; height: 40px; font: inherit; background: transparent; color: inherit; border: 2px solid var(--ink); border-radius: 6px; }
+.hb:hover { border: 2px solid var(--accent); border-radius: 6px; }
+
+.wide { padding: 12px 16px; }
+@media (min-width: 600px) {
+  .wide { border: 3px solid var(--ink); }
+}
+
+.pseudo { width: 200px; }
+.pseudo::before { content: ""; display: block; height: 48px; border: 2px solid var(--ink); }

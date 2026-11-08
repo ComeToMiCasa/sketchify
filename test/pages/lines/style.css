@@ -1,0 +1,25 @@
+/* M5 example: one-sided lines (spec "한 변 border, hr, 밑줄").
+   Light: red #e5484d, list hover blue #3b82f6. Dark: green #22c55e. */
+:root { --line: #e5484d; --accent: #3b82f6; }
+@media (prefers-color-scheme: dark) {
+  :root { --line: #22c55e; }
+}
+
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
+.page { width: 760px; margin: 0 auto; padding: 24px; box-sizing: border-box; display: grid; gap: 24px; }
+
+/* A long list: every divider must reach both ends. */
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.list li:hover { border-bottom-color: var(--accent); }
+
+.divider { margin: 4px 0; border: 0; border-top: 2px solid var(--line); }
+
+.quote { margin: 0; padding: 4px 0 4px 16px; border-left: 4px solid var(--line); }
+
+.tabs { display: flex; gap: 8px; }
+.tab { padding: 6px 14px; background: #f4f4f2; border-bottom: 2px solid var(--line); border-radius: 6px 6px 0 0; }
+
+/* An inline link that wraps over several lines. */
+.text { width: 300px; margin: 0; }
+.link { color: #1d2433; text-decoration: none; border-bottom: 2px solid var(--line); }

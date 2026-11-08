@@ -1,0 +1,8 @@
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #fbfbf8; }
+.page { max-width: 480px; margin: 0 auto; padding: 24px; }
+.form { display: grid; gap: 14px; }
+.field-row { display: grid; gap: 4px; }
+.field { font: inherit; padding: 8px 10px; border: 2px solid #1d2433; border-radius: 6px; background-color: #ffffff; }
+.field:focus { border-color: #2f55d4; outline: 2px solid #2f55d4; outline-offset: 2px; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.check, .radio { width: 18px; height: 18px; margin: 0 6px 0 0; vertical-align: -3px; }

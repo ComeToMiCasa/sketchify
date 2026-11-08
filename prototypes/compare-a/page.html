@@ -1,0 +1,223 @@
+<title>Pseudo vs Border-image</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: 컨트롤 바 → 시나리오별 행(설명 + 현재 방식 | A 방식 두 무대) → 용량 */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --ink: #1b2130;
+  --muted: #5d6577;
+  --line: #d3d7df;
+  --accent: #2f6fe4;
+  --good: #1f7a4d;
+  --bad: #b3401f;
+  --paper: #fbfbf8;
+  --paper-ink: #1d2433;
+  --paper-dark: #1b1f27;
+  --paper-ink-dark: #e7eaf0;
+  --f-display: "Gaegu", cursive;
+  --f-body: "IBM Plex Sans KR", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14171d; --surface: #1c2029; --ink: #e7eaf0; --muted: #9aa2b2; --line: #2e3442; --accent: #7ea6ff; --good: #5fcf96; --bad: #ff8a66; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #14171d; --surface: #1c2029; --ink: #e7eaf0; --muted: #9aa2b2; --line: #2e3442; --accent: #7ea6ff; --good: #5fcf96; --bad: #ff8a66; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+header h1 { font-family: var(--f-display); font-size: 36px; line-height: 1.05; margin: 0 0 8px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 74ch; }
+code { font-family: var(--f-mono); font-size: 0.88em; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.controls label { display: flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+.controls input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+.controls input[type=color] { width: 32px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
+.controls button { font: inherit; font-size: 13px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.controls button:hover { border-color: var(--accent); }
+
+.row { display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.row h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.row h2 .num { font-family: var(--f-mono); color: var(--muted); font-weight: 400; margin-right: 6px; }
+.row > p { margin: 0; font-size: 13.5px; color: var(--muted); max-width: 80ch; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.pane { min-width: 0; display: grid; gap: 6px; align-content: start; }
+.pane-label { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.verdict { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.verdict.ok { color: var(--good); } .verdict.no { color: var(--bad); }
+.stage { overflow-x: auto; background: var(--paper); color: var(--paper-ink); border: 1px solid var(--line); border-radius: 8px; }
+.dark .stage { background: var(--paper-dark); color: var(--paper-ink-dark); }
+.stage-inner { padding: 22px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; font-size: 14px; }
+
+.sizes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; }
+.size { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+.size h3 { margin: 0 0 4px; font-size: 14px; }
+.size p { margin: 0; font-family: var(--f-mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- 예시 요소 공통 (두 방식 동일) ---------- */
+.btn { font: inherit; font-weight: 600; color: inherit; padding: 8px 16px; background: transparent; cursor: pointer; }
+.tag { padding: 2px 10px; font-size: 13px; }
+.card { width: 200px; padding: 14px; display: grid; gap: 6px; box-sizing: border-box; }
+.card h4 { margin: 0; font-size: 15px; }
+.card p { margin: 0; font-size: 13px; }
+
+/* absolute 자식 시나리오: 메가 메뉴 */
+.pair.three { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.mega-wrap { width: 100%; padding-bottom: 138px; }
+.mnav { position: relative; display: flex; align-items: center; gap: 14px; padding: 8px 10px; border: 1px dashed currentColor; border-radius: 6px; font-size: 13.5px; }
+.mnav .logo { font-weight: 700; }
+.mitem { padding: 3px 10px; font-weight: 600; white-space: nowrap; }
+.mega { position: absolute; left: 0; right: 0; top: calc(100% + 6px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; padding: 12px 14px; border: 1px solid currentColor; border-radius: 6px; background: var(--paper); font-weight: 400; font-size: 13px; white-space: normal; box-sizing: border-box; }
+.dark .mega { background: var(--paper-dark); }
+.mega b { grid-column: 1 / -1; font-size: 12px; opacity: 0.7; }
+/* 원본: 손그림을 적용하지 않은 평범한 CSS */
+.orig .sk { border: 2px solid currentColor; border-radius: 6px; }
+
+/* 툴팁 시나리오 */
+.tip-row { display: flex; gap: 16px; }
+.tip-anchor { position: relative; display: inline-block; font-size: 13px; text-decoration: underline dotted; cursor: help; }
+.tip { position: absolute; left: 0; top: calc(100% + 6px); z-index: 10; width: 260px; padding: 8px 10px; background: #1d2433; color: #fff; border-radius: 6px; font-size: 12.5px; line-height: 1.45; text-decoration: none; }
+
+/* ===== 현재 방식 ===== */
+/*CUR*/
+/* ===== A 방식 ===== */
+/*ALT*/
+</style>
+<style id="alt-hover">
+/*ALT_HOVER*/
+</style>
+
+<div class="wrap" id="root">
+  <header>
+    <h1>현재 방식 vs A 방식</h1>
+    <p><b>현재 방식</b>은 가상요소에 mask로 그리고 색은 CSS 변수로 칠해요. 그래서 요소에 <code>position: relative</code>와 <code>isolation: isolate</code>가 필요해요. <b>A 방식</b>은 <code>border-image</code>와 배경으로 요소 자체에 그리고, 색은 SVG에 고정해요. 두 열의 HTML은 같아요.</p>
+  </header>
+
+  <div class="controls">
+    <label for="brand">브랜드 색 (실행 중 변경) <input id="brand" type="color" value="#2f6fe4"></label>
+    <label for="dark"><input id="dark" type="checkbox"> 다크 모드</label>
+    <label for="fh"><input id="fh" type="checkbox"> hover 상태 강제</label>
+    <button type="button" id="remint">첫 hover 다시 보기</button>
+  </div>
+
+  <section class="row">
+    <h2><span class="num">1</span>모양</h2>
+    <p>같은 모양이 나오는지 확인해요. A에서 거친 단색은 테두리와 채움을 SVG 하나에 같이 그리고(<code>border-image</code>의 <code>fill</code>), 빗금은 배경 이미지로 깔아요.</p>
+    <div class="pair">
+      <div class="pane cur"><div class="pane-label">현재 방식</div><div class="stage"><div class="stage-inner">
+        <button type="button" class="sk btn">확인</button><button type="button" class="sk btn">취소</button><button type="button" class="sk btn brand">브랜드 버튼</button>
+        <span class="sk tag">립</span><span class="sk tag">틴트</span><span class="sk tag">쿠션</span>
+        <div class="sk fx card"><h4>단색</h4><p>배경색 그대로</p></div>
+        <div class="sk fx rough card"><h4>거친 단색</h4><p>울퉁불퉁한 채움</p></div>
+        <div class="sk fx hatch card"><h4>빗금</h4><p>반복 무늬</p></div>
+      </div></div></div>
+      <div class="pane alt"><div class="pane-label">A 방식</div><div class="stage"><div class="stage-inner">
+        <button type="button" class="sk btn">확인</button><button type="button" class="sk btn">취소</button><button type="button" class="sk btn brand">브랜드 버튼</button>
+        <span class="sk tag">립</span><span class="sk tag">틴트</span><span class="sk tag">쿠션</span>
+        <div class="sk fx card"><h4>단색</h4><p>배경색 그대로</p></div>
+        <div class="sk fx rough card"><h4>거친 단색</h4><p>울퉁불퉁한 채움</p></div>
+        <div class="sk fx hatch card"><h4>빗금</h4><p>반복 무늬</p></div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <h2><span class="num">2</span>absolute 자식: 메가 메뉴</h2>
+    <p>점선 상자가 <code>position: relative</code>인 내비게이션 바예요. "캠페인" 메뉴 항목은 테두리가 있어서 손그림이 되고, 원래 <code>position</code>이 없어요. 펼쳐진 메뉴는 내비게이션 바 전체 너비로 펼쳐지도록 작성했어요. 왼쪽 원본이 정답이에요.</p>
+    <div class="pair three">
+      <div class="pane orig"><div class="pane-label">원본 <span class="verdict">손그림 없음</span></div><div class="stage"><div class="stage-inner">
+        <div class="mega-wrap"><nav class="mnav" aria-label="예시 내비게이션">
+          <span class="logo">Moodboard</span>
+          <span class="sk mitem">캠페인 ▾<span class="mega"><b>캠페인</b><span>진행 중 12</span><span>검토 대기 3</span><span>완료 48</span><span>새 캠페인 만들기</span></span></span>
+          <span>리포트</span>
+        </nav></div>
+      </div></div></div>
+      <div class="pane cur"><div class="pane-label">현재 방식 <span class="verdict no">메뉴가 항목 너비로 쪼그라듦</span></div><div class="stage"><div class="stage-inner">
+        <div class="mega-wrap"><nav class="mnav" aria-label="예시 내비게이션">
+          <span class="logo">Moodboard</span>
+          <span class="sk mitem">캠페인 ▾<span class="mega"><b>캠페인</b><span>진행 중 12</span><span>검토 대기 3</span><span>완료 48</span><span>새 캠페인 만들기</span></span></span>
+          <span>리포트</span>
+        </nav></div>
+      </div></div></div>
+      <div class="pane alt"><div class="pane-label">A 방식 <span class="verdict ok">원본과 같음</span></div><div class="stage"><div class="stage-inner">
+        <div class="mega-wrap"><nav class="mnav" aria-label="예시 내비게이션">
+          <span class="logo">Moodboard</span>
+          <span class="sk mitem">캠페인 ▾<span class="mega"><b>캠페인</b><span>진행 중 12</span><span>검토 대기 3</span><span>완료 48</span><span>새 캠페인 만들기</span></span></span>
+          <span>리포트</span>
+        </nav></div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <h2><span class="num">3</span>옆 요소 위로 올라가는 툴팁</h2>
+    <p>첫 번째 카드 안의 툴팁(<code>z-index: 10</code>)이 옆 카드 위로 넘어가야 해요. 현재 방식은 카드마다 쌓임 맥락이 생겨서, 나중에 그려지는 옆 카드가 툴팁을 덮어요.</p>
+    <div class="pair">
+      <div class="pane cur"><div class="pane-label">현재 방식 <span class="verdict no">옆 카드가 툴팁을 덮음</span></div><div class="stage"><div class="stage-inner">
+        <div class="tip-row">
+          <div class="sk fx card"><h4>도달률</h4><p><span class="tip-anchor">목표 대비 118%<span class="tip">지난 시즌 같은 기간과 비교한 값이에요. 이 툴팁은 옆 카드 위로 보여야 해요.</span></span></p></div>
+          <div class="sk fx card"><h4>저장 수</h4><p>경쟁사 평균의 2배</p><p>옆 카드</p><p>　</p></div>
+        </div>
+      </div></div></div>
+      <div class="pane alt"><div class="pane-label">A 방식 <span class="verdict ok">툴팁이 위로 보임</span></div><div class="stage"><div class="stage-inner">
+        <div class="tip-row">
+          <div class="sk fx card"><h4>도달률</h4><p><span class="tip-anchor">목표 대비 118%<span class="tip">지난 시즌 같은 기간과 비교한 값이에요. 이 툴팁은 옆 카드 위로 보여야 해요.</span></span></p></div>
+          <div class="sk fx card"><h4>저장 수</h4><p>경쟁사 평균의 2배</p><p>옆 카드</p><p>　</p></div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <h2><span class="num">4</span>hover 색 변경</h2>
+    <p>마우스를 올리면 테두리는 브랜드 색, 채움은 밝은 노랑으로 바뀌어요. A는 hover용 SVG로 갈아끼워요. "첫 hover 다시 보기"를 누르면 A의 hover SVG를 새로 만들어서, 처음 바뀔 때 테두리가 잠깐 비는지 다시 확인할 수 있어요.</p>
+    <div class="pair">
+      <div class="pane cur"><div class="pane-label">현재 방식</div><div class="stage"><div class="stage-inner">
+        <button type="button" class="sk fx hov btn">시안 승인</button><button type="button" class="sk fx hov btn">저장</button><button type="button" class="sk fx hov btn">미리 보기</button>
+        <button type="button" class="sk fx rough hov btn">거친 단색</button><button type="button" class="sk fx rough hov btn">거친 단색</button>
+      </div></div></div>
+      <div class="pane alt"><div class="pane-label">A 방식</div><div class="stage"><div class="stage-inner">
+        <button type="button" class="sk fx hov btn">시안 승인</button><button type="button" class="sk fx hov btn">저장</button><button type="button" class="sk fx hov btn">미리 보기</button>
+        <button type="button" class="sk fx rough hov btn">거친 단색</button><button type="button" class="sk fx rough hov btn">거친 단색</button>
+      </div></div></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <h2><span class="num">5</span>실행 중 색 변경</h2>
+    <p>위 컨트롤의 브랜드 색을 바꿔보세요. 현재 방식은 CSS 변수를 따라 바로 바뀌고, A는 빌드 때 정한 색에 머물러요. 다크 모드는 A도 동작하는데, 미리 다크용 SVG를 따로 만들어둬서 가능한 거예요.</p>
+    <div class="pair">
+      <div class="pane cur"><div class="pane-label">현재 방식 <span class="verdict ok">변수 색을 따름</span></div><div class="stage"><div class="stage-inner">
+        <button type="button" class="sk btn brand">브랜드 버튼</button><button type="button" class="sk btn brand">구독하기</button><span class="sk tag brand">NEW</span>
+      </div></div></div>
+      <div class="pane alt"><div class="pane-label">A 방식 <span class="verdict no">빌드 때 색에 고정</span></div><div class="stage"><div class="stage-inner">
+        <button type="button" class="sk btn brand">브랜드 버튼</button><button type="button" class="sk btn brand">구독하기</button><span class="sk tag brand">NEW</span>
+      </div></div></div>
+    </div>
+  </section>
+
+  <div class="sizes">
+    <div class="size"><h3>현재 방식 CSS</h3><p><!--S_CUR--></p></div>
+    <div class="size"><h3>A 방식 CSS (라이트 + 다크 + hover)</h3><p><!--S_ALT--></p></div>
+  </div>
+</div>
+
+<script>
+  const root = document.getElementById('root');
+  document.getElementById('brand').addEventListener('input', (e) => {
+    document.querySelectorAll('.cur, .alt').forEach((el) => el.style.setProperty('--brand', e.target.value));
+  });
+  document.getElementById('dark').addEventListener('change', (e) => root.classList.toggle('dark', e.target.checked));
+  document.getElementById('fh').addEventListener('change', (e) => root.classList.toggle('force-hover', e.target.checked));
+  // Re-mint A's hover drawings with a fresh marker, so the browser has to decode them again.
+  let n = 0;
+  const hoverStyle = document.getElementById('alt-hover');
+  document.getElementById('remint').addEventListener('click', () => {
+    n += 1;
+    hoverStyle.textContent = hoverStyle.textContent.replace(/%3Csvg( data-n='\d+')? xmlns/g, `%3Csvg data-n='${n}' xmlns`);
+  });
+</script>
