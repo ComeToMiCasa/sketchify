@@ -18,8 +18,18 @@ export const decodePng = (buffer: Uint8Array): Screenshot => {
   return { width: png.width, height: png.height, data: png.data };
 };
 
-/** Full-page screenshot; pixel coordinates are document coordinates (device scale 1). */
-export const screenshot = async (page: Page): Promise<Screenshot> => decodePng(await page.screenshot({ fullPage: true }));
+/**
+ * Waits two animation frames: styles changed by a hover, focus or click are then painted. Without it,
+ * WebKit under load was sometimes captured before repainting a hover's new `border-image`.
+ */
+export const settle = (page: Page): Promise<void> =>
+  page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+
+/** Full-page screenshot, after the page has settled; pixel coordinates are document coordinates (device scale 1). */
+export const screenshot = async (page: Page): Promise<Screenshot> => {
+  await settle(page);
+  return decodePng(await page.screenshot({ fullPage: true }));
+};
 
 /** Document-coordinate box of the first element matching the selector. */
 export const rectOf = (page: Page, selector: string): Promise<Rect> =>

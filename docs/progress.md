@@ -29,6 +29,12 @@ M9 출시 준비 (시작 전)
 - GitHub 원격 저장소를 연결하고 `.github/workflows/ci.yml`이 실제로 도는지 확인 (M0에서는 로컬만 확인).
 - CI 캐시·매트릭스는 필요해지면 그때 추가.
 
+## 브라우저 테스트 안정화 (2026-11-16, 사용자 요청)
+
+- 문제: WebKit에서 전체를 병렬로 돌리면 hover 직후 찍는 테스트가 실행마다 다른 것으로 가끔 하나씩 실패(fills, neighbors, cascade 오라클, base 버튼 등). 혼자 돌리면 통과, CSS 출력과는 무관.
+- 한 일(사용자 승인): 공통 도우미 `screenshot()`(`test/browser/lib/pixels.ts`)이 찍기 전에 두 애니메이션 프레임을 기다림(`settle`). 개별 테스트의 기대값은 바꾸지 않음.
+- 결과: 전체 브라우저 테스트 4번 연속 264개 모두 통과(약 30초).
+
 ## M8 진단과 예산 (2026-11-15)
 
 - 한 일: 경고 12종(`style`, `mixed`, `sides`, `radius`, `unit`, `combo`, `collapse`, `transition`, `clip`, `underline-color`, `fill-image`, `link-color`), `quiet` 옵션, 용량 보고(PostCSS 메시지 `sketchify-report`)와 예산 경고(`budget`, 기본 gzip +30KB).
@@ -63,7 +69,7 @@ M9 출시 준비 (시작 전)
   - 한 일: `drawFocusNineSlice`(포커스 전과 같은 테두리 + 링), `drawChoiceRing`, base 포커스 규칙(`--sketch: off`로 완성해 씀), `outline-style: var(--skb-outline, none)`.
   - 페이지가 직접 그린 칸(예: `.own`)은 base 링이 덮이므로, base가 있는 파일에서 그린 사용자 규칙에 `--skb-outline: auto`(상속 안 되는 `@property`)를 넣어 브라우저 outline을 남김. 두 브라우저에서 확인.
   - 테스트: M7a에서 쓴 포커스 테스트 3개를 새 동작으로 고침(사용자 결정에 따른 변경), base 스냅샷 갱신, 페이지 스타일 칸의 outline 유지 테스트 추가.
-- 알려진 불안정 테스트: `fills.spec.ts`의 "hover redraws the fill…"이 WebKit에서 전체 테스트를 병렬로 돌릴 때 가끔 실패함(마우스를 올린 직후 찍어, hover 그림이 아직 안 바뀐 순간이 잡힘). 혼자 돌리면 8/8 통과, fills 출력은 이번 단계에서 바뀌지 않음(스냅샷 동일). 테스트 수정은 사용자 확인 후.
+- 알려진 불안정 테스트: `fills.spec.ts`의 "hover redraws the fill…"이 WebKit에서 전체 테스트를 병렬로 돌릴 때 가끔 실패함(마우스를 올린 직후 찍어, hover 그림이 아직 안 바뀐 순간이 잡힘). M8 뒤에 고침(아래 "브라우저 테스트 안정화").
 - 남은 일(M7b): 선택된 라디오의 점이 원과 겹쳐 보임, textarea 손잡이, 링크 기본 밑줄, 버튼. base 페이지는 M4 오라클에 넣지 않음(레이어 우선순위를 오라클이 모름).
 
 ## M6d 밑줄 (2026-11-15)
