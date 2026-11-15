@@ -4,11 +4,12 @@
 
 ## 현재 단계
 
-M8 진단과 예산 (시작 전)
+M9 출시 준비 (시작 전)
 
 ## 다음에 할 일
 
-- M8 진단과 예산: 경고 목록 전체(부모 overflow가 자르는 선, 색을 몰라 남긴 밑줄 등), 용량 보고, 조합 분량 보고, 기본 예산 수치.
+- CSS 프레임워크(Pico.css, Bootstrap 등)는 범위 밖(2026-11-16 사용자 결정): 직접 쓴 CSS(바닐라)만 대상. M8 보정에서 Pico 오류 127개·Bootstrap 554개가 났고 원인은 세 가지(테두리를 지우는 초기화 규칙이 부모 없는 부분 규칙 오류, `[data-theme]` 속성 테마, 수정자가 바꾸는 컴포넌트 변수)였음. 나중에 프레임워크를 지원하려면 여기서 시작.
+- M9 출시 준비: CLI(용량 보고 표시), 설정 파일, README, 패키지 검증, 배포.
 - 거친 단색의 모양이 작은 요소에서 얇아짐: Rough.js가 사각형 꼭짓점을 2~3px 안쪽으로 흔들어, 높이 12px 막대가 8~9px 두께로 보인다. 필요하면 작은 요소용으로 흔들림을 줄일 것.
 - 채움과 한 변 선은 함께 그리지 않음(원래대로). 필요하면 이후 과제.
 - 두세 변에만 있는 테두리(위+아래, ㄱ자)는 원래 CSS로 둠. 경고는 M8, 손그림은 필요하면 이후 과제.
@@ -27,6 +28,16 @@ M8 진단과 예산 (시작 전)
 - 미리보기: 지금은 scratchpad의 일회용 스크립트로 원본·변환 비교 페이지를 만든다. 필요하면 `npm run preview`로 프로젝트에 추가.
 - GitHub 원격 저장소를 연결하고 `.github/workflows/ci.yml`이 실제로 도는지 확인 (M0에서는 로컬만 확인).
 - CI 캐시·매트릭스는 필요해지면 그때 추가.
+
+## M8 진단과 예산 (2026-11-15)
+
+- 한 일: 경고 12종(`style`, `mixed`, `sides`, `radius`, `unit`, `combo`, `collapse`, `transition`, `clip`, `underline-color`, `fill-image`, `link-color`), `quiet` 옵션, 용량 보고(PostCSS 메시지 `sketchify-report`)와 예산 경고(`budget`, 기본 gzip +30KB).
+  - 그리지 않은 이유는 cascade가 계산(`whyPlain`)하고 gather가 묶음당 한 번만 냄. 파일 주변 경고는 `src/read/context.ts`(overflow·collapse·transition 셀렉터)와 `src/report/warnings.ts`.
+  - 용량은 `src/report/budget.ts`(원본·gzip, 그림 수, 조합 규칙과 그 그림, 규칙별 기여). brotli는 처음 넣었다가 뺌: 큰 파일에서 빌드마다 250~400ms가 들어 브라우저 테스트 전체가 27초 → 44초로 느려지고 hover 테스트가 흔들림. 규칙 길이를 변환 전후로 비교하고, 그림은 처음 쓴 규칙에 셈.
+  - 순환 import(gather → warnings → base → variants → gather)를 피하려고 레이어 이름을 `src/emit/layer.ts`로 뺌.
+- 정한 것(사용자 결정 2026-11-15): 보정은 공개 프레임워크로, 경고는 모두 켜고 종류별로 끔, 용량은 예산을 넘을 때만 경고. 계획 승인으로 정한 것: 경고 종류와 판정, 측정 방식, 기본 예산(측정으로 30KB). spec.md "제약과 오류 처리", "배포와 품질 기준", "옵션"에 반영.
+- 보정: Water.css +6.8KB gzip(그림 121장, 경고 radius·combo·collapse 4·transition), 예시 페이지 +1.5~11.4KB, design-system +22.9KB, exact-hatch +86.2KB(예산 초과 경고). Pico·Bootstrap은 오류로 측정 불가(위 "다음에 할 일").
+- 테스트: 경고 종류마다 나는 경우·안 나는 경우, 위치와 한 번만, `quiet`·옵션 검증, 보고 메시지와 예산 경고(플러그인). 예시 페이지 경고 개수 스냅샷(`warnings.json`). CSS 출력은 바뀌지 않음(기존 스냅샷 그대로). `errorOf` 테스트 도우미가 옵션을 받도록 함(기본값은 그대로).
 
 ## M7b base 다듬기 (2026-11-15)
 

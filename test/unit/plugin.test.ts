@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import postcss from 'postcss';
 import sketchify from '../../src/index';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
@@ -98,8 +99,8 @@ const shape = (css: string): string =>
     .replace(/^:where\([^\n]+\n/gm, '')
     .replace(/( --sk-\d-\d: var\(--sk-[0-9a-f]{8}\)( !important)?;){12}/g, ' SLOTS;');
 
-const errorOf = async (css: string): Promise<string> =>
-  transform(css, {}, 'theme.css').then(
+const errorOf = async (css: string, options: Record<string, unknown> = {}): Promise<string> =>
+  transform(css, options, 'theme.css').then(
     () => 'no error',
     (error: unknown) => (error instanceof Error ? error.message : String(error)),
   );
@@ -701,5 +702,68 @@ describe('@sketchify base, M7b: links, buttons, the resize grip', () => {
 
   it('draws the textarea resize grip', async () => {
     expect(await transform(BASE)).toMatch(/:where\(textarea\)::-webkit-resizer \{ background: url\("data:image\/svg\+xml,[^"]*"\) no-repeat center \/ 100% 100%; \}/);
+  });
+});
+
+describe('warnings (M8)', () => {
+  const run = (css: string, options: Record<string, unknown> = {}) => postcss([sketchify(options)]).process(css, { from: 'w.css' });
+  const kinds = async (css: string, options: Record<string, unknown> = {}): Promise<ReadonlyArray<string>> =>
+    (await run(css, options)).warnings().map((w) => /^\[sketchify:([\w-]+)\]/.exec(w.text)?.[1] ?? w.text);
+
+  it.each([
+    ['style', '.a { border: 2px dashed #000; }'],
+    ['mixed', '.a { border: 2px solid #000; border-left-color: red; }'],
+    ['sides', '.a { border-top: 1px solid #000; border-bottom: 1px solid #000; }'],
+    ['radius', '.a { border: 1px solid #000; border-radius: 999px; }'],
+    ['unit', '.a { border: 0.1em solid #000; }'],
+    ['fill-image', '.a { border: 1px solid #000; background: url(x.png) #eee; --sketch-fill: rough; }'],
+    ['underline-color', 'a { color: inherit; text-decoration: underline; }'],
+    ['collapse', 'table { border-collapse: collapse; }\ntd { border: 1px solid #000; }'],
+    ['transition', '.a { border: 1px solid #000; transition: border-color .2s; }'],
+    ['clip', '.card { overflow: hidden; }\n.card .a { border: 1px solid #000; }'],
+    ['link-color', '@sketchify base;\na.nav { color: red; }'],
+  ])('%s', async (kind, css) => {
+    expect(await kinds(css)).toContain(kind);
+  });
+
+  it('says nothing for drawn borders, borders without lines, or rules turned off', async () => {
+    expect(await kinds('.a { border: 1px solid #000; }\n.b { border: none; }\n.c { border: 0; }\n')).toEqual([]);
+    expect(await kinds('.a { border: 2px dashed #000; --sketch: off; }')).toEqual([]);
+    expect(await kinds('.card { overflow: visible; }\n.card .a { border: 1px solid #000; }')).toEqual([]);
+  });
+
+  it('points at the declaration, once per rule, and once per family when members share the reason', async () => {
+    const warnings = (await run('.a { border: 2px dashed #000; }\n.a:hover { border-color: red; }\n')).warnings();
+    expect(warnings.map((w) => [w.line, w.column])).toEqual([[1, 6]]);
+  });
+
+  it('warns about a combination only when no rule in it is already undrawable', async () => {
+    const css = '.a { border: 1px solid #000; }\n.a.x { border-left-color: red; }\n';
+    const found = await kinds(css);
+    expect(found.filter((k) => k === 'combo')).toEqual([]);
+    expect(found).toContain('mixed');
+  });
+
+  it('leaves kinds out with quiet, and checks the option', async () => {
+    expect(await kinds('.a { border: 2px dashed #000; }', { quiet: ['style'] })).toEqual([]);
+    expect(await errorOf('.a { border: 1px solid #000; }', { quiet: ['loud'] })).toContain('quiet는 경고 이름의 배열');
+  });
+
+  it('always leaves a size report, and warns over the budget only', async () => {
+    const result = await run('.a { border: 1px solid #000; }\n');
+    const report = result.messages.find((m) => m.type === 'sketchify-report') as unknown as {
+      before: { raw: number };
+      after: { raw: number; gzip: number };
+      drawings: number;
+      top: ReadonlyArray<{ selector: string }>;
+    };
+    expect(report.after.raw).toBeGreaterThan(report.before.raw);
+    expect(report.drawings).toBe(12);
+    expect(report.top[0]?.selector).toBe('.a');
+    expect(result.warnings()).toEqual([]);
+    const tight = (await run('.a { border: 1px solid #000; }\n', { budget: { gzip: 0.1 } })).warnings().map((w) => w.text);
+    expect(tight[0]).toMatch(/^\[sketchify:budget\] 손그림으로 CSS가 gzip [\d.]+KB 늘었습니다\(예산 0\.1KB\)\. .*많이 늘린 규칙\(원본 기준\): \.a \(1:1\)/);
+    expect((await run('.a { border: 1px solid #000; }\n', { budget: false })).warnings()).toEqual([]);
+    expect(await errorOf('.a { border: 1px solid #000; }', { budget: { gzip: -1 } })).toContain('budget은');
   });
 });

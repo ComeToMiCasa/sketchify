@@ -298,3 +298,39 @@ export const underlineRequestFor = (border: BorderState, inlineByType: boolean, 
 /** The drawing for an element: its border (and fill), or else its underline (M6d). */
 export const drawingFor = (border: BorderState, options: ResolvedOptions, inlineByType: boolean): DrawRequest | undefined =>
   paintRequestFor(border, options) ?? underlineRequestFor(border, inlineByType, options);
+
+// --- Why a border is not drawn (M8 warnings) ---------------------------------------------
+
+/** Why a border is shown as the original CSS draws it. */
+export type PlainReason = 'style' | 'mixed' | 'sides' | 'radius' | 'unit';
+
+/**
+ * The reason a border with lines is not drawn, or undefined when it is drawn, has no line, or is
+ * not drawn for a reason that is an error elsewhere (an unknown colour) or a choice (`border-image`).
+ */
+export const whyPlain = (border: BorderState, options: ResolvedOptions): PlainReason | undefined => {
+  if (border.unsupported || border.hasBorderImage) return undefined;
+  if (drawRequestFor(border, options)) return undefined;
+  const sides = SIDES.map((side) => ({ side, line: sideLine(border, side), state: border.sides[side] }));
+  const others = sides.filter(({ line }) => line.kind === 'other');
+  if (others.some(({ state }) => state.style.kind === 'keyword' && state.style.keyword !== 'solid')) return 'style';
+  if (others.some(({ state }) => state.width.kind === 'unknown')) return 'unit';
+  if (others.length > 0) return undefined;
+  const lines = sides.flatMap(({ line }) => (line.kind === 'line' ? [line] : []));
+  if (lines.length === 0) return undefined;
+  if (lines.length === 2 || lines.length === 3) return 'sides';
+  const [first] = lines;
+  if (lines.length === 4 && first && lines.some((line) => line.width !== first.width || line.color !== first.color)) return 'mixed';
+  // Four equal sides or one side, still not drawn: the corners are the reason.
+  return 'radius';
+};
+
+/** An underline that would be drawn but for its colour, which is not known at build time (M8 `underline-color`). */
+export const underlineColorUnknown = (border: BorderState, inlineByType: boolean, options: ResolvedOptions): boolean => {
+  if (underlineRequestFor(border, inlineByType, options) || !asksForUnderline(border) || border.unsupported || border.hasBorderImage) return false;
+  const known: Color = { kind: 'literal', css: '#000' };
+  return underlineRequestFor({ ...border, text: { ...border.text, color: known, decorationColor: { kind: 'unset' } } }, inlineByType, options) !== undefined;
+};
+
+/** A drawn fill was asked for but the background has an image, so the fill is not drawn (M8 `fill-image`). */
+export const fillBlockedByImage = (border: BorderState): boolean => border.fill.kind === 'mode' && border.fill.mode !== 'solid' && border.background.image;

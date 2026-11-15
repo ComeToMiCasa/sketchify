@@ -8,12 +8,15 @@ import { type NamedDrawing, emitVariants } from './emit/variants';
 import { scopeOf } from './gather/colors';
 import { type DrawRequest, type Emission, SEEDS, anchorOf, gather } from './gather/gather';
 import { UNDERLINE_WIDTH } from './gather/request';
-import { type BaseColors, type ResolvedOptions, baseOf, hatchOf, resolveOptions, type SketchifyOptions } from './options';
+import { type BaseColors, type ResolvedOptions, baseOf, budgetOf, hatchOf, resolveOptions, type SketchifyOptions } from './options';
 import { type BaseDrawings, type ThemeDrawings, baseCss, expandBase, findBase, inBase, markLinkLines } from './emit/base';
 import { CHOICE_RING_OUTSET, drawCheckbox, drawChevron, drawChoiceRing, drawRadio, drawResizer } from './draw/controls';
 import { collect } from './read/collect';
 import { variableDefs } from './read/variables';
 import { type Diagnostic, isError, position } from './report/diagnostics';
+import { type RuleGrowth, overBudget, sizeReport } from './report/budget';
+import { contextWarnings, kindOf } from './report/warnings';
+import { fileContext } from './read/context';
 
 export type { BaseColors, HatchOptions, HatchPreset, RoughnessPreset, SketchifyOptions } from './options';
 
@@ -84,6 +87,12 @@ const HATCH_SEED = 7;
 const sketchify = (options: SketchifyOptions = {}): Plugin => ({
   postcssPlugin: 'postcss-sketchify',
   Once: (root, { result }) => {
+    // For the size report (M8): the file as given, and each rule's length before anything is added.
+    const original = root.toString();
+    const lengths = new Map<Rule, number>();
+    root.walkRules((rule) => {
+      lengths.set(rule, rule.toString().length);
+    });
     const resolved = resolveOptions(options);
     report(root, result, resolved.diagnostics);
     const named = new Map<string, string>();
@@ -104,7 +113,14 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
 
     const facts = collect(root);
     const emissions = gather(facts.value, scopeOf(variableDefs(root)), resolved.value);
-    report(root, result, [...facts.diagnostics, ...emissions.diagnostics]);
+    // Warnings (M8): from the cascade, and from the rest of the file; `quiet` leaves kinds out.
+    const quiet = new Set(resolved.value.quiet ?? []);
+    const around = contextWarnings(emissions.value, facts.value, fileContext(root), base.value !== undefined);
+    const shown = [...facts.diagnostics, ...emissions.diagnostics, ...around].filter((d) => {
+      const kind = kindOf(d);
+      return kind === undefined || !quiet.has(kind);
+    });
+    report(root, result, shown);
 
     const drawingUrl = (request: DrawRequest, flip: Flip): string => {
       switch (request.kind) {
@@ -235,6 +251,27 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
       base.value !== undefined || emissions.value.some((emission) => emission.mix && emission.outcome.kind === 'draw'),
       emissions.value.some((emission) => emission.outcome.hatch !== undefined),
     );
+
+    // The size report (M8): always a message; a warning over the budget.
+    const combos = new Set(emissions.value.filter((e) => e.combo).map((e) => e.selector));
+    const growth: Array<RuleGrowth> = [];
+    root.walkRules((rule) => {
+      const text = rule.toString();
+      const stored = rule.selector === ':root' && (rule.nodes ?? []).every((node) => node.type === 'decl' && named.has(node.prop));
+      if (stored) return;
+      growth.push({
+        selector: rule.selector,
+        at: lengths.has(rule) ? position(rule) : '',
+        added: text.length - (lengths.get(rule) ?? 0),
+        drawings: [...text.matchAll(/var\((--sk-[0-9a-f]{8})\)/g)].map((m) => m[1] ?? ''),
+        combo: !lengths.has(rule) && combos.has(rule.selector),
+      });
+    });
+    const sizes = sizeReport(original, root.toString(), growth, new Map([...named].map(([name, url]) => [name, name.length + url.length + 4])));
+    result.messages.push({ type: 'sketchify-report', plugin: 'postcss-sketchify', ...sizes });
+    const budget = budgetOf(resolved.value);
+    const over = budget === false ? undefined : overBudget(sizes, budget);
+    if (over) result.warn(over);
   },
 });
 

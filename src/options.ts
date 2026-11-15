@@ -1,4 +1,5 @@
 import { parseColor } from './read/values';
+import { WARNING_KINDS, type WarningKind, isWarningKind } from './report/warnings';
 import type { Result } from './report/diagnostics';
 
 export type RoughnessPreset = 'subtle' | 'normal' | 'messy';
@@ -17,6 +18,10 @@ export type SketchifyOptions = {
    * and focus in `accent`; `dark` replaces them under `prefers-color-scheme: dark`. Literal colours.
    */
   readonly base?: Partial<BaseColors> & { readonly dark?: Partial<BaseColors> };
+  /** Warning kinds to leave out (spec "제약과 오류 처리", M8), such as `['style', 'clip']`. */
+  readonly quiet?: ReadonlyArray<WarningKind>;
+  /** The CSS size budget (M8): a warning when the added size (gzip, KB) is over it. `false` turns it off. */
+  readonly budget?: { readonly gzip: number } | false;
 };
 
 /** The two colours of the base drawings. */
@@ -90,7 +95,16 @@ export type ResolvedOptions = {
   readonly hatch?: HatchOptions;
   /** Present only when the user set base colours; use `baseOf` for the full set with defaults. */
   readonly base?: BaseOptions;
+  /** Warning kinds left out (M8). */
+  readonly quiet?: ReadonlyArray<WarningKind>;
+  /** The added gzip size (KB) over which a warning is given, or `false` for none (M8). Default `BUDGET_GZIP_KB`. */
+  readonly budget?: number | false;
 };
+
+/** The default budget: added gzip KB per file (spec "용량 예산"). Calibrated in M8: pages add 2–11KB, Water.css 6.8KB, the many-combination design-system page 22.9KB. */
+export const BUDGET_GZIP_KB = 30;
+
+export const budgetOf = (options: ResolvedOptions): number | false => (options.budget === undefined ? BUDGET_GZIP_KB : options.budget);
 
 export const hatchOf = (options: ResolvedOptions): HatchOptions => options.hatch ?? HATCH_DEFAULTS;
 
@@ -208,6 +222,23 @@ const resolveBase = (base: unknown): Result<BaseOptions | undefined> => {
   return { value: diagnostics.length > 0 ? undefined : { ...light.value, ...(dark ? { dark: dark.value } : {}) }, diagnostics };
 };
 
+const resolveQuiet = (quiet: unknown): Result<ReadonlyArray<WarningKind> | undefined> => {
+  if (quiet === undefined) return { value: undefined, diagnostics: [] };
+  const list = Array.isArray(quiet) ? (quiet as ReadonlyArray<unknown>) : undefined;
+  const wrong = list ? list.filter((kind) => !isWarningKind(kind)) : [quiet];
+  if (!list || wrong.length > 0) {
+    return { value: undefined, diagnostics: optionError(`quiet는 경고 이름의 배열이어야 합니다(${WARNING_KINDS.join(', ')}). 받은 값: ${JSON.stringify(list ? wrong : quiet)}`) };
+  }
+  return { value: list.filter(isWarningKind), diagnostics: [] };
+};
+
+const resolveBudget = (budget: unknown): Result<number | false | undefined> => {
+  if (budget === undefined || budget === false) return { value: budget, diagnostics: [] };
+  const gzip = typeof budget === 'object' && budget !== null ? (budget as Readonly<Record<string, unknown>>)['gzip'] : undefined;
+  if (typeof gzip === 'number' && Number.isFinite(gzip) && gzip > 0 && Object.keys(budget as object).length === 1) return { value: gzip, diagnostics: [] };
+  return { value: undefined, diagnostics: optionError(`budget은 { gzip: 0보다 큰 KB 숫자 }이거나 false여야 합니다. 받은 값: ${JSON.stringify(budget)}`) };
+};
+
 /** Validates user options (they may come from plain JS) and fills in defaults. */
 export const resolveOptions = (options: unknown): Result<ResolvedOptions> => {
   const fallback: ResolvedOptions = { rough: PRESETS.normal };
@@ -219,8 +250,16 @@ export const resolveOptions = (options: unknown): Result<ResolvedOptions> => {
   const rough = resolveRoughness(given['roughness']);
   const hatch = resolveHatch(given['hatch']);
   const base = resolveBase(given['base']);
+  const quiet = resolveQuiet(given['quiet']);
+  const budget = resolveBudget(given['budget']);
   return {
-    value: { rough: rough.value, ...(hatch.value ? { hatch: hatch.value } : {}), ...(base.value ? { base: base.value } : {}) },
-    diagnostics: [...rough.diagnostics, ...hatch.diagnostics, ...base.diagnostics],
+    value: {
+      rough: rough.value,
+      ...(hatch.value ? { hatch: hatch.value } : {}),
+      ...(base.value ? { base: base.value } : {}),
+      ...(quiet.value ? { quiet: quiet.value } : {}),
+      ...(budget.value === undefined ? {} : { budget: budget.value }),
+    },
+    diagnostics: [...rough.diagnostics, ...hatch.diagnostics, ...base.diagnostics, ...quiet.diagnostics, ...budget.diagnostics],
   };
 };

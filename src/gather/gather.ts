@@ -11,6 +11,7 @@ import { parseSizeHint } from '../read/values';
 import { isInlineByType, selectorText } from '../read/selectors';
 import type { Condition } from '../read/variables';
 import type { Diagnostic, Result } from '../report/diagnostics';
+import { warning } from '../report/warnings';
 import {
   type Element,
   type Evaluated,
@@ -48,6 +49,8 @@ export type Emission = {
   readonly important: boolean;
   /** Picks among neighbour variants (not for pseudo-elements, see M2). */
   readonly mix: boolean;
+  /** A combination rule (M4) for several rules together; counted apart in the size report (M8). */
+  readonly combo?: boolean;
 };
 
 const withoutBackground = (outcome: Exclude<Outcome, { readonly kind: 'leave' }>): Outcome => {
@@ -294,12 +297,29 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
               outcome,
               important: evaluated.important,
               mix: element.entry.pseudoElement === '',
+              combo: true,
             },
           ]
         : [];
     });
 
-  return { value: [...ruleEmissions, ...comboEmissions], diagnostics: [] };
+  // Warnings (M8): why a rule's border is left as CSS (once per family unless a member changes the
+  // reason), what else kept a drawing out, and combinations that cannot be drawn on their own.
+  const familyBase = new Map(usable.flatMap((f) => [f.base, ...f.members].map((item) => [itemKey(item), f.base] as const)));
+  const reasonOf = new Map(singles.map((s) => [itemKey(s.item), s.evaluated.reason] as const));
+  const nodeOf = (item: Item) => item.facts.lastBorderDecl ?? anchorOf(item.facts);
+  const itemWarnings = singles.flatMap(({ item, evaluated }): ReadonlyArray<Diagnostic> => {
+    const parent = familyBase.get(itemKey(item));
+    const inherited = parent && parent !== item ? reasonOf.get(itemKey(parent)) : undefined;
+    const reason = evaluated.reason && evaluated.reason !== inherited ? [warning(evaluated.reason, nodeOf(item))] : [];
+    return [...reason, ...(evaluated.notes ?? []).map((note) => warning(note, nodeOf(item)))];
+  });
+  const comboWarnings = state.combos.flatMap(({ element, anchor, evaluated }): ReadonlyArray<Diagnostic> => {
+    if (!evaluated.reason || singles.some((s) => s.evaluated.reason && appliesTo(s.item, element))) return [];
+    return [warning('combo', anchor.facts.lastBorderDecl ?? anchorOf(anchor.facts), selectorText(element.entry))];
+  });
+
+  return { value: [...ruleEmissions, ...comboEmissions], diagnostics: dedupe([...itemWarnings, ...comboWarnings]) };
 };
 
 const dedupe = (diagnostics: ReadonlyArray<Diagnostic>): ReadonlyArray<Diagnostic> =>

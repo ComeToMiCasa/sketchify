@@ -21,9 +21,13 @@ import {
   blockedByCurrentColor,
   colorsOf,
   drawingFor,
+  fillBlockedByImage,
   fillInCurrentColor,
   hatchFor,
   hatchInCurrentColor,
+  type PlainReason,
+  underlineColorUnknown,
+  whyPlain,
 } from './request';
 
 /** One complex selector of one rule. A rule with a selector list gives one item per selector. */
@@ -215,10 +219,16 @@ export type Outcome =
 
 export const outcomeKey = (outcome: Outcome): string => JSON.stringify(outcome);
 
+/** Things worth a warning about an element's result (M8), apart from why its border is plain. */
+export type Note = 'fill-image' | 'underline-color';
+
 export type Evaluated = {
   readonly outcome: Outcome;
   readonly important: boolean;
   readonly reads: Computed['reads'];
+  /** Why the border is shown as plain CSS, when it has lines that are not drawn (M8). */
+  readonly reason?: PlainReason;
+  readonly notes?: ReadonlyArray<Note>;
 };
 
 /** The cascade's result for an element, in the file's values and in each condition's. */
@@ -253,6 +263,11 @@ export const evaluate = (
         },
       }
     : {};
+  const notes: ReadonlyArray<Note> = [
+    ...(fillBlockedByImage(base.border) ? (['fill-image'] as const) : []),
+    ...(underlineColorUnknown(base.border, inlineByType, options) ? (['underline-color'] as const) : []),
+  ];
+  const noted = notes.length > 0 ? { notes } : {};
   const underlinePart =
     request?.kind !== 'underline' && underlined(applicable)
       ? { underline: asksForUnderline(base.border) ? { kind: 'native' as const } : { kind: 'off' as const, ...lineOf(base.border) } }
@@ -263,7 +278,13 @@ export const evaluate = (
       return { value: leave, diagnostics: [error] };
     }
     return {
-      value: { outcome: { kind: 'plain', colors: colorsOf(base.border), ...background, ...hatchPart, ...underlinePart }, important: base.important, reads: base.reads },
+      value: {
+        outcome: { kind: 'plain', colors: colorsOf(base.border), ...background, ...hatchPart, ...underlinePart },
+        important: base.important,
+        reads: base.reads,
+        ...noted,
+        ...(whyPlain(base.border, options) ? { reason: whyPlain(base.border, options) } : {}),
+      },
       diagnostics: [],
     };
   }
@@ -282,7 +303,7 @@ export const evaluate = (
   const reads = [...base.reads, ...conditional.flatMap((c) => c.computed.reads)];
   if (diagnostics.length > 0) return { value: { ...leave, reads }, diagnostics };
   return {
-    value: { outcome: { kind: 'draw', request, variants: outcomes.flatMap((o) => o.value), ...background, ...hatchPart, ...underlinePart }, important: base.important, reads },
+    value: { outcome: { kind: 'draw', request, variants: outcomes.flatMap((o) => o.value), ...background, ...hatchPart, ...underlinePart }, important: base.important, reads, ...noted },
     diagnostics: [],
   };
 };

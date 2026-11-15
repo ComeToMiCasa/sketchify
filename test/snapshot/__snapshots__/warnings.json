@@ -1,0 +1,26 @@
+{
+  "base": {},
+  "boxes": {
+    "radius": 2
+  },
+  "design-system": {},
+  "exact-hatch": {
+    "budget": 1
+  },
+  "fills": {
+    "fill-image": 1
+  },
+  "forms": {},
+  "hatch": {},
+  "lines": {},
+  "mega-menu": {
+    "style": 1
+  },
+  "neighbors": {},
+  "sketch": {},
+  "theme": {},
+  "tooltip": {},
+  "underline": {
+    "underline-color": 1
+  }
+}

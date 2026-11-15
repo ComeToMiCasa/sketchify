@@ -11,10 +11,11 @@ import type { BaseColors, BaseOptions } from '../options';
 import type { Diagnostic, Result } from '../report/diagnostics';
 import type { ImagePlacement } from '../draw/stroke';
 import type { Slot } from './emit';
+import { BASE_LAYER } from './layer';
 import { PICK, slotVar } from './variants';
 
-/** The layer the base styles go in. Unlayered styles beat every layer, whatever their specificity. */
-export const BASE_LAYER = 'sketchify-base';
+/** The layer the base styles go in (see layer.ts). */
+export { BASE_LAYER };
 
 /** The base colours as variables (not `--sketch-*`: those are the plugin's controls). */
 const INK = '--skb-ink';
