@@ -1,6 +1,6 @@
 {
   "name": "postcss-sketchify",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "PostCSS plugin that turns plain CSS borders and fills into hand-drawn sketches without changing layout",
   "license": "MIT",
   "type": "module",
@@ -8,11 +8,16 @@
     "node": ">=20"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "sketchify": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "import": {
@@ -24,6 +29,10 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    },
     "./package.json": "./package.json"
   },
   "keywords": [
@@ -34,11 +43,12 @@
     "rough"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsup",
     "lint": "tsc --noEmit && eslint .",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "tune:hatch": "node test/tools/hatch-tuner/build.mjs"
+    "tune:hatch": "node test/tools/hatch-tuner/build.mjs",
+    "pack:check": "npm run build && npm pack --dry-run"
   },
   "peerDependencies": {
     "postcss": "^8.4.0"

@@ -1,0 +1,30 @@
+{
+  "name": "sketchify",
+  "version": "0.1.0",
+  "description": "Turn plain CSS borders, fills and underlines into hand-drawn sketches without changing layout (command line for postcss-sketchify)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "sketchify": "./bin.js"
+  },
+  "files": [
+    "bin.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "css",
+    "sketch",
+    "hand-drawn",
+    "rough",
+    "cli",
+    "postcss"
+  ],
+  "dependencies": {
+    "postcss": "^8.4.0",
+    "postcss-sketchify": "^0.1.0"
+  }
+}

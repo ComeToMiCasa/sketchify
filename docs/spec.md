@@ -336,7 +336,20 @@ M7b에서 정한 것(2026-11-15):
 PostCSS 플러그인을 본체로 하고, CLI는 그 위에 얇게 씌운다. 지원 브라우저는 Chromium 계열과 Safari다.
 
 - **PostCSS 플러그인**: 개발 서버에서도 배포본과 같은 모습이 보여야 하므로 기본 사용 방식이다. Vite, Next.js, webpack, Parcel은 `postcss.config.js`를 읽으므로 도구별 플러그인은 만들지 않는다.
-- **CLI**: 플러그인을 감싼 얇은 도구다. 빌드 도구 없는 정적 사이트와 빠른 시험용이다. 플러그인과 같은 설정 파일(`sketchify.config.js`)을 공유한다. 프로토타입에 있던 폰트 관련 옵션은 없앤다.
+- **CLI**: 플러그인을 감싼 얇은 도구다. 빌드 도구 없는 정적 사이트와 빠른 시험용이다. 플러그인과 같은 설정 파일(`sketchify.config.js`)을 공유한다. 프로토타입에 있던 폰트 관련 옵션은 없앤다. (M9에서 정함, 2026-11-16)
+  - 사용법: `sketchify <파일…> [-o 출력 | -d 폴더] [--watch] [--config 경로] [--no-report]`, `--help`, `--version`(사용자 결정: 여러 파일과 감시 모드까지).
+    - 파일 하나는 `-o`, 여럿은 `-d`(이름 그대로)로 쓴다.
+    - 입력이 없으면 표준 입력을 읽고, 출력 지정이 없으면 표준 출력으로 쓴다.
+    - 입력과 출력이 같은 경로면 오류다(원본 보호).
+  - 출력: 표준 출력에는 CSS만 쓴다. 표준 오류에는 경고(`파일:줄:칸 [sketchify:종류] …`)와 파일마다 보고 한 줄(`a.css → out/a.css  gzip +1.6KB, 그림 12장(조합 0), 경고 1`)을 쓴다. `--no-report`는 보고 줄만 끈다.
+  - 종료 코드: 0 성공, 1 컴파일 오류(위치·메시지 출력), 2 인자·설정 파일 오류.
+  - `--watch`: 입력과 설정 파일이 바뀌면 100ms씩 묶어 다시 변환한다. 오류가 나도 계속 감시한다. 출력 지정이 있어야 한다.
+  - 닫힌 파이프(`| head`)는 오류 없이 끝낸다. CLI 문구는 진단과 같은 한국어다.
+- **설정 파일**: 현재 폴더의 `sketchify.config.js`·`.mjs`·`.cjs` 중 처음 것, 또는 `--config`. 기본 내보내기가 옵션 객체다. 감시 중에는 바뀔 때마다 다시 읽는다. 플러그인은 설정 파일을 스스로 읽지 않는다. `postcss.config.js`에서 가져와 넘긴다(README 예시).
+- **패키지 두 개** (사용자 결정, 2026-11-16):
+  - `postcss-sketchify`: 플러그인(ESM·CJS), bin `sketchify`, `postcss-sketchify/cli`(`run`, `main`), README(영어, 사용자 결정), LICENSE(MIT).
+  - `sketchify`(`packages/sketchify/`): 같은 CLI를 부르는 작은 패키지로, `npx sketchify`로 바로 쓴다. 이름만 차지하는 패키지는 npm 정책상 회수될 수 있어 실제로 쓰이는 CLI 패키지로 냈다.
+  - 둘 다 0.1.0이다. 배포는 사용자가 직접 하며, 순서는 postcss-sketchify 다음 sketchify다. 원격 저장소·CI는 M9 범위 밖이다(사용자 결정).
 - **중복 제거**: PostCSS는 CSS 파일을 하나씩 따로 처리한다. MVP는 한 파일 안에서만 같은 그림을 CSS 변수에 한 번 넣어 재사용한다. 파일 간 중복 제거는 이후 과제다.
 - **지원 브라우저**: Chromium 계열(Chrome, Edge, Samsung Internet 등)과 Safari. Safari에서 동작하는 것을 확인했다. iOS의 모든 브라우저는 WebKit을 쓰므로, Safari 지원으로 iPhone·iPad도 범위에 들어온다. Firefox는 범위 밖이다.
 - **지원 Node**: 20 이상(`engines: ">=20"`). 개발 도구(tsup, vitest)도 Node 20에서 도는 버전을 쓰고, CI는 Node 20으로 돌린다.

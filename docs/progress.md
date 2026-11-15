@@ -4,12 +4,11 @@
 
 ## 현재 단계
 
-M9 출시 준비 (시작 전)
+0.1.0 배포 준비 완료 (배포는 사용자가 직접, 아래 M9 "배포하는 법")
 
 ## 다음에 할 일
 
 - CSS 프레임워크(Pico.css, Bootstrap 등)는 범위 밖(2026-11-16 사용자 결정): 직접 쓴 CSS(바닐라)만 대상. M8 보정에서 Pico 오류 127개·Bootstrap 554개가 났고 원인은 세 가지(테두리를 지우는 초기화 규칙이 부모 없는 부분 규칙 오류, `[data-theme]` 속성 테마, 수정자가 바꾸는 컴포넌트 변수)였음. 나중에 프레임워크를 지원하려면 여기서 시작.
-- M9 출시 준비: CLI(용량 보고 표시), 설정 파일, README, 패키지 검증, 배포.
 - 거친 단색의 모양이 작은 요소에서 얇아짐: Rough.js가 사각형 꼭짓점을 2~3px 안쪽으로 흔들어, 높이 12px 막대가 8~9px 두께로 보인다. 필요하면 작은 요소용으로 흔들림을 줄일 것.
 - 채움과 한 변 선은 함께 그리지 않음(원래대로). 필요하면 이후 과제.
 - 두세 변에만 있는 테두리(위+아래, ㄱ자)는 원래 CSS로 둠. 경고는 M8, 손그림은 필요하면 이후 과제.
@@ -28,6 +27,30 @@ M9 출시 준비 (시작 전)
 - 미리보기: 지금은 scratchpad의 일회용 스크립트로 원본·변환 비교 페이지를 만든다. 필요하면 `npm run preview`로 프로젝트에 추가.
 - GitHub 원격 저장소를 연결하고 `.github/workflows/ci.yml`이 실제로 도는지 확인 (M0에서는 로컬만 확인).
 - CI 캐시·매트릭스는 필요해지면 그때 추가.
+
+## M9 출시 준비 (2026-11-16)
+
+- 한 일:
+  - CLI `sketchify`(`src/cli.ts`, 순수 부분은 `src/report/format.ts`): 파일 하나·여러 개·폴더 출력·파이프·`--watch`·`--config`·`--no-report`·도움말·버전, 경고와 크기 보고 줄, 종료 코드 0/1/2, 닫힌 파이프 처리.
+  - 설정 파일 `sketchify.config.js`·`.mjs`·`.cjs`. `.cjs`는 감시 중 다시 읽도록 require 캐시를 비움.
+  - 빌드: tsup 설정을 둘로(플러그인 ESM·CJS, CLI ESM + shebang). 두 빌드가 동시에 `dist`를 비우던 위험 때문에 `build` 스크립트가 먼저 한 번만 비움.
+  - package.json 0.1.0, `bin`, `exports`의 `./cli`, `files`(dist·README·LICENSE), `pack:check` 스크립트.
+  - README.md(영어), LICENSE(MIT, ComeToMiCasa).
+  - `packages/sketchify/`(CLI 패키지: package.json, bin.js, README, LICENSE).
+- 정한 것(사용자 결정 2026-11-16): CLI는 여러 파일 + 감시 모드, README는 영어, CI·원격은 M9 밖, `sketchify` 이름도 CLI 패키지로 확보, 배포는 사용자. 계획 승인으로 정한 것: CLI 사용법·출력·종료 코드, 설정 파일 규칙, 패키지 구성. spec.md "배포와 품질 기준"에 반영.
+- 검증(scratchpad, `npm pack`한 tgz로):
+  - 묶음 `postcss-sketchify` 117.6KB(풀면 446KB, 파일 9개), `sketchify` 1.4KB(파일 4개).
+  - ESM 프로젝트: 플러그인, CLI(`-o`·`-d`·파이프), `sketchify.config.js` 읽기, TypeScript 타입(`SketchifyOptions`, `postcss-sketchify/cli`)을 `tsc`로 확인.
+  - CJS 프로젝트: `require('postcss-sketchify')`.
+  - `sketchify` 패키지: 두 tgz를 함께 설치해 `sketchify` 명령 동작.
+  - Node 20.20에서 플러그인(ESM·CJS)과 CLI 동작.
+- 테스트: `test/unit/cli.test.ts`(CLI 15개: 출력 방식, 인자 오류 7가지, 컴파일 오류 종료 코드, 설정 파일 .mjs·.cjs·잘못된 옵션, 도움말·버전, 감시 모드 + 출력 형식 2개).
+- 배포하는 법(사용자가 직접):
+  1. `npm run lint && npm test && npm run test:browser && npm run build`
+  2. `npm view postcss-sketchify` · `npm view sketchify`가 둘 다 404(아직 비어 있음)인지 다시 확인(2026-11-16 기준 비어 있음. 비슷한 `postcss-sketch`가 있지만 구두점만 다른 이름이 아니라 npm 규칙에 걸리지 않음).
+  3. `npm login` 후 저장소 루트에서 `npm publish`(postcss-sketchify), 이어서 `cd packages/sketchify && npm publish`(sketchify). 순서가 바뀌면 sketchify 설치가 실패함.
+- 원격·CI 연결(사용자가 할 때): GitHub 저장소를 만들어 `git remote add origin …`, push하면 `.github/workflows/ci.yml`이 lint·단위·브라우저 테스트를 돌림. 연결 뒤 package.json에 `repository`를 넣으면 npm 페이지에 저장소 링크가 생김.
+- 남은 일(이후 버전): 파일 간 그림 중복 제거, Tailwind 입력, 정밀 빗금의 Houdini `paint()`, 요소별 seed, CSS 프레임워크 지원(위 "다음에 할 일"), Firefox.
 
 ## 브라우저 테스트 안정화 (2026-11-16, 사용자 요청)
 
