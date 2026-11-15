@@ -41,31 +41,72 @@ const imageDecls = (image: BorderImage, important: boolean): ReadonlyArray<postc
   return [...slots, postcss.decl({ prop: 'border-image', value: borderImageValue(sourceOf(image), image.placement), important })];
 };
 
+/** A hatch background (M6b): the tile's variable and size. `none`: no hatch here (a condition removes it). */
+export type HatchLook = { readonly kind: 'tile'; readonly tile: string; readonly size: number } | { readonly kind: 'none' };
+
+/** The variable the neighbour rules set to shift each element's hatch tile. */
+export const HATCH_PICK = '--skh';
+
 /** What to write for an element. */
 export type Look =
-  /** A drawing. */
-  | { readonly kind: 'image'; readonly image: BorderImage }
+  /**
+   * A drawing. `filled`: it draws the background too, so the original one is hidden.
+   * `background`: the original background colour to show again (another rule's fill hid it).
+   */
+  | { readonly kind: 'image'; readonly image: BorderImage; readonly filled?: boolean; readonly background?: string; readonly hatch?: HatchLook }
   /** The original border, shown as CSS would (`border-image: none` and its colours). */
-  | { readonly kind: 'plain'; readonly colors: string }
+  | { readonly kind: 'plain'; readonly colors: string; readonly background?: string; readonly hatch?: HatchLook }
   /** No border at all here (`border-image: none`; the colour stays transparent). */
-  | { readonly kind: 'none' };
+  | { readonly kind: 'none' }
+  /** Only the background: a hatch or a restored colour; the border is left as it is. */
+  | { readonly kind: 'paint'; readonly background?: string; readonly hatch?: HatchLook };
+
+/**
+ * The hatch as a background (spec "채움": unknown size). Only paint properties: the layout stays.
+ * The tile shows inside the padding box, starting where the neighbour rules shift it.
+ */
+const hatchDecls = (hatch: HatchLook | undefined, important: boolean, full: boolean): ReadonlyArray<postcss.Declaration> => {
+  if (!hatch) return [];
+  if (hatch.kind === 'none') return [postcss.decl({ prop: 'background-image', value: 'none', important })];
+  const image = postcss.decl({ prop: 'background-image', value: `var(${hatch.tile})`, important });
+  if (!full) return [image];
+  return [
+    postcss.decl({ prop: 'background-color', value: 'transparent', important }),
+    image,
+    postcss.decl({ prop: 'background-size', value: `${hatch.size}px ${hatch.size}px`, important }),
+    postcss.decl({ prop: 'background-repeat', value: 'repeat', important }),
+    postcss.decl({ prop: 'background-clip', value: 'padding-box', important }),
+    postcss.decl({ prop: 'background-position', value: `var(${HATCH_PICK}, 0 0)`, important }),
+  ];
+};
 
 /**
  * The declarations for a look. A drawing keeps the border's width and style (layout) and hides
  * its colour (`hideColor`). Every declaration carries the importance of the border it draws, so
  * the rule whose border wins also wins the drawing.
  */
+const backgroundDecl = (value: string | undefined, important: boolean): ReadonlyArray<postcss.Declaration> =>
+  value === undefined ? [] : [postcss.decl({ prop: 'background-color', value, important })];
+
 const lookDecls = (look: Look, important: boolean, hideColor: boolean): ReadonlyArray<postcss.Declaration> => {
   switch (look.kind) {
     case 'image':
-      return [...(hideColor ? [postcss.decl({ prop: 'border-color', value: 'transparent', important })] : []), ...imageDecls(look.image, important)];
+      return [
+        ...(hideColor ? [postcss.decl({ prop: 'border-color', value: 'transparent', important })] : []),
+        ...(look.hatch ? [] : backgroundDecl(look.filled ? 'transparent' : look.background, important)),
+        ...hatchDecls(look.hatch, important, hideColor),
+        ...imageDecls(look.image, important),
+      ];
     case 'plain':
       return [
         postcss.decl({ prop: 'border-image', value: 'none', important }),
         postcss.decl({ prop: 'border-color', value: look.colors, important }),
+        ...(look.hatch ? hatchDecls(look.hatch, important, true) : backgroundDecl(look.background, important)),
       ];
     case 'none':
       return [postcss.decl({ prop: 'border-image', value: 'none', important })];
+    case 'paint':
+      return look.hatch ? hatchDecls(look.hatch, important, hideColor) : backgroundDecl(look.background, important);
     default: {
       const unreachable: never = look;
       return unreachable;
@@ -141,7 +182,8 @@ export const createInserter = (): Inserter => {
   };
 };
 
-/** Removes the plugin's `--sketch` control from the output. */
+/** Removes the plugin's controls (`--sketch`, `--sketch-fill`) from the output. */
 export const removeControl = (facts: RuleFacts): void => {
   if (facts.sketch.kind !== 'none') facts.sketch.decl.remove();
+  facts.decls.filter((decl) => decl.prop.toLowerCase() === '--sketch-fill').forEach((decl) => decl.remove());
 };

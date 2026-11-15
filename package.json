@@ -37,7 +37,8 @@
     "build": "tsup",
     "lint": "tsc --noEmit && eslint .",
     "test": "vitest run",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "tune:hatch": "node test/tools/hatch-tuner/build.mjs"
   },
   "peerDependencies": {
     "postcss": "^8.4.0"

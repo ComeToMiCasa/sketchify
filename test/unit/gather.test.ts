@@ -2,7 +2,7 @@ import postcss, { type Rule } from 'postcss';
 import { describe, expect, it } from 'vitest';
 import { factsOfRule } from '../../src/read/collect';
 import { requestFor } from '../../src/gather/gather';
-import { stripRequestFor } from '../../src/gather/request';
+import { paintRequestFor, stripRequestFor } from '../../src/gather/request';
 import { PRESETS } from '../../src/options';
 
 const options = { rough: PRESETS.normal };
@@ -74,5 +74,34 @@ describe('stripRequestFor (one-sided lines)', () => {
     'border-bottom-color: red',
   ])('skips `%s`', (body) => {
     expect(strip(body)).toBeUndefined();
+  });
+});
+
+describe('paintRequestFor (fills, M6a)', () => {
+  const paint = (body: string) => paintRequestFor(factsOfRule(ruleOf(body)).border, options);
+
+  it('adds the fill to a box border, or draws a fill without a border', () => {
+    expect(paint('border: 1px solid red; background: #ffe38a; --sketch-fill: rough')).toMatchObject({ kind: 'nine-slice', width: 1, fill: { kind: 'rough', color: '#ffe38a' } });
+    expect(paint('background-color: blue; border-radius: 4px; --sketch-fill: marker')).toMatchObject({ kind: 'nine-slice', width: 0, radius: 4, fill: { kind: 'marker', color: 'blue' } });
+  });
+
+  it.each([
+    ['solid fill (default)', 'border: 1px solid red; background: #eee', { kind: 'nine-slice', width: 1 }],
+    ['no background colour', 'border: 1px solid red; --sketch-fill: rough', { kind: 'nine-slice', width: 1 }],
+    ['transparent background', 'border: 1px solid red; background: transparent; --sketch-fill: rough', { kind: 'nine-slice', width: 1 }],
+    ['background image', 'border: 1px solid red; background: url(a.png) #eee; --sketch-fill: rough', { kind: 'nine-slice', width: 1 }],
+  ] as const)('keeps the original background: %s', (_name, body, expected) => {
+    const request = paint(body);
+    expect(request).toMatchObject(expected);
+    expect(request && 'fill' in request ? request.fill : undefined).toBeUndefined();
+  });
+
+  it.each([
+    'border-bottom: 1px solid red; background: #eee; --sketch-fill: rough',
+    'border: 1px dashed red; background: #eee; --sketch-fill: rough',
+    'border: 1px solid red; border-radius: 999px; background: #eee; --sketch-fill: rough',
+    'border: 1px solid red; background: currentColor; --sketch-fill: rough',
+  ])('draws nothing for `%s`', (body) => {
+    expect(paint(body)).toBeUndefined();
   });
 });

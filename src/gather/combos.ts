@@ -27,10 +27,15 @@ const appliesTo = (candidate: Candidate, element: Element): boolean =>
 export const winner = (candidates: ReadonlyArray<Candidate>, element: Element): Candidate | undefined =>
   candidates.filter((c) => appliesTo(c, element)).reduce<Candidate | undefined>((best, c) => (!best || beats(c, best) ? c : best), undefined);
 
+/** The background part of an outcome or a look: its hatch and restored background colour. */
+const paintKey = (look: Candidate['look'] | Outcome | undefined): string =>
+  !look || look.kind === 'reset' || look.kind === 'leave' ? '[null,null]' : JSON.stringify([look.hatch ?? null, look.background ?? null]);
+
 /**
  * Whether the element needs its own rule: what it would show differs from what the original
  * CSS gives. A plain border shows correctly without help only when no drawing (and so no
- * `border-color: transparent`) reaches the element.
+ * `border-color: transparent`) reaches the element. The background part (hatch, a restored
+ * colour) must match too.
  */
 export const needsRule = (desired: Outcome, shown: Candidate | undefined, drawingReaches: boolean): boolean => {
   switch (desired.kind) {
@@ -38,9 +43,12 @@ export const needsRule = (desired: Outcome, shown: Candidate | undefined, drawin
       return false;
     case 'draw':
       return shown?.look.kind !== 'draw' || outcomeKey(shown.look) !== outcomeKey(desired);
-    case 'plain':
-      if (shown?.look.kind === 'plain') return shown.look.colors !== desired.colors;
-      return shown?.look.kind === 'draw' || drawingReaches;
+    case 'plain': {
+      const border = shown?.look.kind === 'plain' ? shown.look.colors !== desired.colors : shown?.look.kind === 'draw' || drawingReaches;
+      return border || paintKey(desired) !== paintKey(shown?.look);
+    }
+    case 'paint':
+      return paintKey(desired) !== paintKey(shown?.look);
     default: {
       const unreachable: never = desired;
       return unreachable;

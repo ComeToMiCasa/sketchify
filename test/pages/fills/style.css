@@ -1,0 +1,30 @@
+/* M6a example: rough and marker fills (spec "채움").
+   Fill yellow #ffe38a (dark: #8a6d00), hover green #9be7a8, bar blue #3b82f6, marker #fff176. */
+:root { --fill: #ffe38a; }
+@media (prefers-color-scheme: dark) {
+  :root { --fill: #8a6d00; }
+}
+
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
+.page { width: 760px; margin: 0 auto; padding: 24px; box-sizing: border-box; display: grid; gap: 24px; }
+.row { display: flex; gap: 24px; align-items: center; }
+
+/* Rough fill with a border; hover changes the fill colour; a modifier turns the fill off. */
+.btn { width: 140px; height: 44px; font: inherit; color: inherit; border: 2px solid #1d2433; border-radius: 6px; background: var(--fill); --sketch-fill: rough; }
+.btn:hover { background-color: #9be7a8; }
+.btn.flat { --sketch-fill: solid; }
+
+/* Empty blocks, so the fill can be measured without text. */
+.block { width: 200px; height: 80px; background-color: var(--fill); --sketch-fill: rough; }
+.block.framed { border: 1px solid #1d2433; }
+
+/* A fill with no border: a progress bar. */
+.track { width: 300px; height: 12px; }
+.bar { width: 240px; height: 12px; background-color: #3b82f6; border-radius: 4px; --sketch-fill: rough; }
+
+/* Marker: reaches past the element and lets the text show through. */
+.hl { display: inline-block; padding: 0 2px; background: #fff176; --sketch-fill: marker; }
+.note { width: 220px; padding: 10px; border: 1px solid #1d2433; background: #fff176; --sketch-fill: marker; }
+
+/* A background image stays as it is; the border is still drawn. */
+.image { width: 200px; height: 80px; border: 2px solid #1d2433; background: linear-gradient(#ffffff, #ffe38a); --sketch-fill: rough; }

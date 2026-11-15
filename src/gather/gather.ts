@@ -6,7 +6,7 @@
 // else than the original CSS.
 import type { Declaration } from 'postcss';
 import type { ResolvedOptions } from '../options';
-import { type RuleFacts, isBorderProp } from '../read/collect';
+import { type RuleFacts, isBackgroundProp, isBorderLineProp, isBorderProp, parseFillMode } from '../read/collect';
 import { selectorText } from '../read/selectors';
 import type { Condition } from '../read/variables';
 import type { Diagnostic, Result } from '../report/diagnostics';
@@ -25,10 +25,9 @@ import {
   familiesOf,
   isSelfContained,
   itemsOf,
-  outcomeKey,
   parentsOf,
 } from './cascade';
-import { type Scope, ambiguousSelectorError, classThemeError, familyTooLargeError, invalidSketchError, parentlessError } from './colors';
+import { type Scope, ambiguousSelectorError, classThemeError, familyTooLargeError, invalidFillError, invalidSketchError, parentlessError } from './colors';
 import { type Candidate, combinations, needsRule, winner } from './combos';
 
 export { type ConditionVariant, type DrawRequest, type NineSliceRequest, SEEDS, requestFor } from './request';
@@ -50,8 +49,16 @@ export type Emission = {
   readonly mix: boolean;
 };
 
+const withoutBackground = (outcome: Exclude<Outcome, { readonly kind: 'leave' }>): Outcome => {
+  const { background: _background, ...rest } = outcome;
+  return rest;
+};
+
 /** Where new declarations go in a rule: after its last border declaration (or variable). */
-export const anchorOf = (facts: RuleFacts): Declaration | undefined =>
+export const anchorOf = (facts: RuleFacts, paints = false): Declaration | undefined =>
+  // A drawn fill (or a restored background) must come after the background declarations too:
+  // a later `background` shorthand would set the colour again.
+  (paints ? facts.decls.filter((d) => isBorderLineProp(d.prop.toLowerCase()) || isBackgroundProp(d.prop)).at(-1) : undefined) ??
   facts.lastBorderDecl ??
   facts.decls.filter((d) => isBorderProp(d.prop)).at(-1) ??
   facts.decls.filter((d) => d.prop.startsWith('--')).at(-1);
@@ -99,7 +106,15 @@ const themeErrors = (family: Family, scope: Scope, evaluated: ReadonlyArray<Eval
 type Single = { readonly item: Item; readonly evaluated: Evaluated };
 
 export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: ResolvedOptions): Result<ReadonlyArray<Emission>> => {
-  const sketchErrors = facts.flatMap((f) => (f.sketch.kind === 'invalid' ? [invalidSketchError(f.sketch.decl)] : []));
+  const sketchErrors = facts.flatMap((f) => [
+    ...(f.sketch.kind === 'invalid' ? [invalidSketchError(f.sketch.decl)] : []),
+    ...f.decls
+      .filter((d) => d.prop.toLowerCase() === '--sketch-fill')
+      .flatMap((d): ReadonlyArray<Diagnostic> => {
+        const mode = parseFillMode(d.value);
+        return mode.kind === 'invalid' ? [invalidFillError(d)] : [];
+      }),
+  ]);
   const items = itemsOf(facts);
   const complete = items.filter((item) => isSelfContained(item.facts));
   const families = familiesOf(items, scope);
@@ -124,11 +139,42 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
   const draws = singles.filter((s) => s.evaluated.outcome.kind === 'draw');
   const drawingReaches = (element: Element, except?: Item): boolean =>
     draws.some((s) => s.item !== except && appliesTo(s.item, element));
+  // Rules whose own drawing paints the background (rough, marker or hatch) and so hides it.
+  const fills = singles.filter(({ evaluated: { outcome } }) =>
+    (outcome.kind === 'draw' && outcome.request.kind === 'nine-slice' && outcome.request.fill !== undefined) ||
+    ((outcome.kind === 'draw' || outcome.kind === 'plain' || outcome.kind === 'paint') && outcome.hatch !== undefined),
+  );
+  const fillReaches = (element: Element, except?: Item): boolean => fills.some((s) => s.item !== except && appliesTo(s.item, element));
+
+  /**
+   * What to write for an outcome: a plain border is written only where a drawing reaches the
+   * element (to undo it); elsewhere only its background part (hatch, restored colour) is.
+   */
+  const toWritten = (desired: Outcome, reaches: boolean, fillReaches: boolean): Emission['outcome'] | undefined => {
+    // The original background needs showing again only where another rule's drawn fill hid it.
+    const outcome = fillReaches || desired.kind === 'leave' ? desired : withoutBackground(desired);
+    switch (outcome.kind) {
+      case 'leave':
+        return undefined;
+      case 'draw':
+      case 'paint':
+        return outcome;
+      case 'plain': {
+        if (reaches) return outcome;
+        const paint = { ...(outcome.background === undefined ? {} : { background: outcome.background }), ...(outcome.hatch ? { hatch: outcome.hatch } : {}) };
+        return Object.keys(paint).length > 0 ? { kind: 'paint', ...paint } : undefined;
+      }
+      default: {
+        const unreachable: never = outcome;
+        return unreachable;
+      }
+    }
+  };
 
   const singleLooks = singles.flatMap(({ item, evaluated }): ReadonlyArray<{ readonly item: Item; readonly look: Candidate['look'] }> => {
-    const { outcome } = evaluated;
-    if (outcome.kind === 'draw') return [{ item, look: outcome }];
-    if (outcome.kind === 'plain' && drawingReaches(elementOfItem(item), item)) return [{ item, look: outcome }];
+    const element = elementOfItem(item);
+    const written = toWritten(evaluated.outcome, drawingReaches(element, item), fillReaches(element, item));
+    if (written) return [{ item, look: written }];
     return hasShorthand(item.facts) ? [{ item, look: { kind: 'reset' } }] : [];
   });
   const singleCandidates: ReadonlyArray<Candidate> = singleLooks.map(({ item, look }) => ({
@@ -186,13 +232,14 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
   // Rules: in the rule itself when all its selectors look the same, else one rule per selector.
   const looks = new Map(singleLooks.map(({ item, look }) => [itemKey(item), look]));
   const ruleEmissions = facts.flatMap((f): ReadonlyArray<Emission> => {
-    const own = singles.filter((s) => s.item.facts === f && looks.get(itemKey(s.item))?.kind !== 'reset' && looks.has(itemKey(s.item)));
+    const own = singles.flatMap((s) => {
+      const look = looks.get(itemKey(s.item));
+      return s.item.facts === f && look && look.kind !== 'reset' ? [{ item: s.item, outcome: look }] : [];
+    });
     if (own.length === 0) return [];
-    const keys = new Set(own.map((s) => outcomeKey(s.evaluated.outcome)));
+    const keys = new Set(own.map((s) => JSON.stringify(s.outcome)));
     const whole = keys.size === 1 && own.length === f.entries.length;
-    return own.flatMap(({ item, evaluated }): ReadonlyArray<Emission> => {
-      const { outcome } = evaluated;
-      if (outcome.kind === 'leave') return [];
+    return own.flatMap(({ item, outcome }): ReadonlyArray<Emission> => {
       if (whole && item !== own[0]?.item) return [];
       return [
         {
@@ -210,21 +257,22 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
 
   const comboEmissions = [...state.combos]
     .sort((a, b) => a.anchor.facts.order - b.anchor.facts.order || a.seq - b.seq)
-    .flatMap(({ element, anchor, evaluated }): ReadonlyArray<Emission> =>
-      evaluated.outcome.kind === 'leave'
-        ? []
-        : [
+    .flatMap(({ element, anchor, evaluated }): ReadonlyArray<Emission> => {
+      const outcome = toWritten(evaluated.outcome, drawingReaches(element), fillReaches(element));
+      return outcome
+        ? [
             {
               placement: 'after',
               facts: anchor.facts,
               selector: selectorText(element.entry),
               conditions: element.conditions,
-              outcome: evaluated.outcome,
+              outcome,
               important: evaluated.important,
               mix: element.entry.pseudoElement === '',
             },
-          ],
-    );
+          ]
+        : [];
+    });
 
   return { value: [...ruleEmissions, ...comboEmissions], diagnostics: [] };
 };

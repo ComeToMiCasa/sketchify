@@ -1,0 +1,20 @@
+/* M6b example: hatch fill on elements of unknown size (spec "채움").
+   Hatch blue #3b82f6 (dark: amber #f59e0b), hover green #16a34a. */
+:root { --hatch: #3b82f6; }
+@media (prefers-color-scheme: dark) {
+  :root { --hatch: #f59e0b; }
+}
+
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
+.page { width: 760px; margin: 0 auto; padding: 24px; box-sizing: border-box; display: grid; gap: 24px; }
+.row { display: flex; gap: 24px; }
+
+.card { width: 220px; height: 120px; box-sizing: border-box; border: 2px solid #1d2433; border-radius: 12px; background: var(--hatch); --sketch-fill: hatch; }
+.card:hover { background-color: #16a34a; }
+
+.bare { width: 220px; height: 120px; background-color: var(--hatch); --sketch-fill: hatch; }
+
+/* Bigger than the 192px tile both ways: the seams must not show. */
+.big { width: 520px; height: 420px; box-sizing: border-box; border: 1px solid #1d2433; background: var(--hatch); --sketch-fill: hatch; }
+
+.line { padding: 16px; border-bottom: 2px solid #1d2433; background: var(--hatch); --sketch-fill: hatch; }

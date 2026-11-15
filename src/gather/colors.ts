@@ -154,3 +154,19 @@ export const familyTooLargeError = (decl: Declaration, count: number, max: numbe
     `이 규칙의 테두리를 바꾸는 규칙(수정자·상태·조건)이 ${count}개로 ${max}개를 넘습니다. 조합이 2^${count}가지로 늘어 처리하지 않습니다. ` +
     `규칙을 나누거나(예: 크기별 기본 클래스), 일부 규칙에 \`--sketch: off\`를 넣으세요.`,
 });
+
+// --- Fills (M6a) -------------------------------------------------------------------
+
+export const invalidFillError = (decl: Declaration): Diagnostic => ({
+  severity: 'error',
+  node: decl,
+  message: `\`--sketch-fill\`에는 \`solid\`, \`rough\`, \`marker\`, \`hatch\` 중 하나를 쓸 수 있습니다. 받은 값: \`${decl.value}\`.`,
+});
+
+export const currentFillColorError = (decl: Declaration | undefined): Diagnostic => ({
+  severity: 'error',
+  node: decl,
+  message:
+    '채움 색을 빌드 때 알 수 없습니다: currentColor. `--sketch-fill: rough`·`marker`는 배경색을 그림(SVG)에 고정하므로 색이 정해져 있어야 합니다. ' +
+    `고치는 법: 배경색을 직접 쓰거나(예: \`background-color: #ffe38a\`), \`--sketch-fill\`을 빼서 원래 배경을 쓰세요. ${OFF}`,
+});

@@ -12,6 +12,9 @@ import {
   type Side,
   type Style,
   type Width,
+  type Background,
+  parseBackgroundShorthand,
+  paintsImage,
   parseBorderRadius,
   parseBorderShorthand,
   parseBoxValue,
@@ -39,7 +42,26 @@ export type BorderState = {
   readonly hasBorderImage: boolean;
   /** Any border declaration is `!important`. */
   readonly important: boolean;
+  /** The background as far as fills care (M6): its colour and whether it has an image. */
+  readonly background: { readonly color: Declared<Color>; readonly image: boolean; readonly important: boolean };
+  /** `--sketch-fill`, or `unset` (solid: the original background stays). */
+  readonly fill: Declared<FillMode>;
 };
+
+/** `--sketch-fill` (spec "채움"). `invalid` keeps the text for the error message. */
+export type FillMode =
+  | { readonly kind: 'mode'; readonly mode: 'solid' | 'rough' | 'marker' | 'hatch' }
+  | { readonly kind: 'invalid'; readonly css: string };
+
+const FILL_MODES: ReadonlySet<string> = new Set(['solid', 'rough', 'marker', 'hatch']);
+
+export const parseFillMode = (value: string): FillMode => {
+  const mode = value.trim().toLowerCase();
+  return FILL_MODES.has(mode) ? { kind: 'mode', mode: mode as 'solid' | 'rough' | 'marker' | 'hatch' } : { kind: 'invalid', css: value.trim() };
+};
+
+/** A fill mode other than the original background (rough or marker; hatch from M6b). */
+export const paintsFill = (fill: Declared<FillMode>): boolean => fill.kind === 'mode' && fill.mode !== 'solid';
 
 export type RuleFacts = {
   readonly rule: Rule;
@@ -81,6 +103,8 @@ export const EMPTY_BORDER: BorderState = {
   unsupported: false,
   hasBorderImage: false,
   important: false,
+  background: { color: UNSET, image: false, important: false },
+  fill: UNSET,
 };
 
 type Part = keyof SideState;
@@ -102,6 +126,9 @@ const SIDE_PART_PROP = /^border-(top|right|bottom|left)-(width|style|color)$/;
 const CORNER_PROP = /^border-(top-left|top-right|bottom-right|bottom-left)-radius$/;
 const LOGICAL_PROP = /^border-(block|inline)(-|$)|^border-(start|end)-(start|end)-radius$/;
 
+/** Background declarations a fill reads (M6). */
+export const isBackgroundProp = (prop: string): boolean => /^background(-color|-image)?$/i.test(prop);
+
 /** Whether a declaration feeds the border state: width, style, colour, radius or `border-image`. */
 export const isBorderProp = (prop: string): boolean => {
   const p = prop.toLowerCase();
@@ -118,11 +145,21 @@ export const isBorderLineProp = (prop: string): boolean =>
   SIDE_PART_PROP.test(prop) ||
   /^border-(block|inline)(-|$)/.test(prop);
 
+const applyBackground = (state: BorderState, prop: string, value: string, important: boolean): BorderState => {
+  const background = { ...state.background, important: state.background.important || important };
+  if (prop === 'background-image') return { ...state, background: { ...background, image: paintsImage(value) } };
+  if (prop === 'background-color') return { ...state, background: { ...background, color: parseColor(value) } };
+  const parsed: Background = parseBackgroundShorthand(value);
+  return { ...state, background: { ...background, color: parsed.color ?? UNSET, image: parsed.image } };
+};
+
 /** Applies one declaration to the state. Later declarations win, as in CSS. */
 export const applyDeclaration = (state: BorderState, prop: string, value: string, important: boolean): BorderState => {
   const p = prop.toLowerCase();
   const marked = isBorderLineProp(p) || p === 'border-radius' || CORNER_PROP.test(p) ? { ...state, important: state.important || important } : state;
 
+  if (p === '--sketch-fill') return { ...state, fill: parseFillMode(value) };
+  if (isBackgroundProp(p)) return applyBackground(state, p, value, important);
   if (p.startsWith('border-image')) return { ...marked, hasBorderImage: true };
   if (LOGICAL_PROP.test(p)) return { ...marked, unsupported: true };
   if (p === 'border') {
@@ -216,7 +253,7 @@ export const factsOfRule = (rule: Rule, placed: Omit<Placed, 'rule'> = { selecto
 
 /** Whether the rule matters to borders: border declarations, variables (which borders may read) or `--sketch`. */
 const mattersToBorders = (facts: RuleFacts): boolean =>
-  facts.sketch.kind !== 'none' || facts.decls.some((decl) => isBorderProp(decl.prop) || decl.prop.startsWith('--'));
+  facts.sketch.kind !== 'none' || facts.decls.some((decl) => isBorderProp(decl.prop) || isBackgroundProp(decl.prop) || decl.prop.startsWith('--'));
 
 /** Facts for every style rule that matters to borders, in source order. `@keyframes` are skipped. */
 export const collect = (root: Root): Result<ReadonlyArray<RuleFacts>> => ({

@@ -2,6 +2,7 @@
 import type { LineSide, NineSliceInput, StripInput } from '../draw/stroke';
 import type { ResolvedOptions } from '../options';
 import type { BorderState, Declared } from '../read/collect';
+import type { FillInput } from '../draw/fill';
 import { CORNERS, SIDES, type Color, type Corner, type Radius, type Side, type Style, type Width, isCurrentColor } from '../read/values';
 import type { Condition } from '../read/variables';
 
@@ -102,21 +103,80 @@ export const stripRequestFor = (border: BorderState, options: ResolvedOptions): 
 export const drawRequestFor = (border: BorderState, options: ResolvedOptions): DrawRequest | undefined =>
   requestFor(border, options) ?? stripRequestFor(border, options);
 
-/** Whether the border could be drawn if its `currentColor` sides had a known colour. */
+const isCurrent = (color: Declared<Color>): boolean => color.kind !== 'unset' && isCurrentColor(color);
+const known: Color = { kind: 'literal', css: '#000' };
+
+/** The fill the state asks for (`--sketch-fill: rough | marker`), if any. */
+const fillMode = (border: BorderState): FillInput['kind'] | undefined =>
+  border.fill.kind === 'mode' && (border.fill.mode === 'rough' || border.fill.mode === 'marker') ? border.fill.mode : undefined;
+
+/**
+ * A drawing with its fill (spec "채움", M6a). Without a rough/marker fill, a background colour
+ * or with a background image, it is the border drawing alone and the original background stays.
+ * A fill goes with a four-sided border or no border; with anything else (a one-sided line,
+ * dashes, a large radius) nothing is drawn and the original CSS shows.
+ */
+export const paintRequestFor = (border: BorderState, options: ResolvedOptions): DrawRequest | undefined => {
+  const mode = fillMode(border);
+  const color = border.background.color.kind === 'literal' ? border.background.color.css : undefined;
+  // A fill in currentColor cannot be baked into the SVG: nothing is drawn, and the caller reports it.
+  if (mode && !border.background.image && isCurrent(border.background.color)) return undefined;
+  if (!mode || border.background.image || color === undefined) return drawRequestFor(border, options);
+  if (border.unsupported || border.hasBorderImage) return undefined;
+  const fill: FillInput = { kind: mode, color };
+  const box = requestFor(border, options);
+  if (box) return { ...box, fill };
+  if (!SIDES.every((side) => sideLine(border, side).kind === 'none')) return undefined;
+  const radius = uniformRadius(border);
+  if (radius === undefined || radius > MAX_RADIUS) return undefined;
+  return { kind: 'nine-slice', width: 0, radius, color: 'transparent', rough: options.rough, seed: SEEDS[0], fill };
+};
+
+
+/** Whether the border (or its fill) could be drawn if its `currentColor` parts had a known colour. */
 export const blockedByCurrentColor = (border: BorderState, options: ResolvedOptions): boolean => {
   const sides = SIDES.map((side) => border.sides[side]);
-  if (!sides.some((side) => side.color.kind !== 'unset' && isCurrentColor(side.color))) return false;
-  const known: BorderState = {
+  const fillCurrent = fillMode(border) !== undefined && !border.background.image && isCurrent(border.background.color);
+  if (!sides.some((side) => isCurrent(side.color)) && !fillCurrent) return false;
+  const resolved: BorderState = {
     ...border,
     sides: Object.fromEntries(
       SIDES.map((side) => {
         const state = border.sides[side];
-        const color = state.color.kind !== 'unset' && isCurrentColor(state.color) ? { kind: 'literal' as const, css: '#000' } : state.color;
-        return [side, { ...state, color }];
+        return [side, { ...state, color: isCurrent(state.color) ? known : state.color }];
       }),
     ) as BorderState['sides'],
+    background: { ...border.background, color: isCurrent(border.background.color) ? known : border.background.color },
   };
-  return drawRequestFor(known, options) !== undefined;
+  const request = paintRequestFor(resolved, options);
+  return request !== undefined && (fillCurrent ? request.kind === 'nine-slice' && request.fill !== undefined : true);
+};
+
+/** A hatch fill (M6b): its colour. Drawn as a background, apart from the border drawing. */
+export type HatchPaint = { readonly color: string };
+
+const asksForHatch = (border: BorderState): boolean => border.fill.kind === 'mode' && border.fill.mode === 'hatch';
+
+/** The hatch the state asks for: `--sketch-fill: hatch`, a literal background colour and no background image. */
+export const hatchFor = (border: BorderState): HatchPaint | undefined =>
+  asksForHatch(border) && !border.background.image && border.background.color.kind === 'literal' ? { color: border.background.color.css } : undefined;
+
+/** The state asks for a hatch whose colour is currentColor. */
+export const hatchInCurrentColor = (border: BorderState): boolean =>
+  asksForHatch(border) && !border.background.image && isCurrent(border.background.color);
+
+/** No side has a line: nothing to draw or show for the border itself. */
+export const hasNoLine = (border: BorderState): boolean => SIDES.every((side) => sideLine(border, side).kind === 'none');
+
+/** The state asks for a drawn fill whose colour is currentColor. */
+export const fillInCurrentColor = (border: BorderState): boolean =>
+  fillMode(border) !== undefined && !border.background.image && isCurrent(border.background.color);
+
+/** The background colour as CSS, to show the original background again. */
+export const backgroundOf = (border: BorderState): string => {
+  const color = border.background.color;
+  if (color.kind === 'unset' || color.kind === 'transparent') return 'transparent';
+  return color.css;
 };
 
 export const allTransparent = (border: BorderState): boolean => SIDES.every((side) => border.sides[side].color.kind === 'transparent');

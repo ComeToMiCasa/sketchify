@@ -166,3 +166,30 @@ export const parseBorderRadius = (value: string): Readonly<Record<Corner, Radius
     ? { 'top-left': box.top, 'top-right': box.right, 'bottom-right': box.bottom, 'bottom-left': box.left }
     : unknownAll;
 };
+
+// --- Backgrounds (M6 fills) -------------------------------------------------------
+
+/** What a background declaration says: its colour, and whether it paints an image or gradient. */
+export type Background = { readonly color: Color | undefined; readonly image: boolean };
+
+/** Any image layer: `url()`, gradients, `image-set()`, `element()`, `cross-fade()`, `paint()`. */
+const IMAGE_FUNCTION = /\b(url|[a-z-]*gradient|image-set|element|cross-fade|paint|image)\(/i;
+
+/**
+ * The `background` shorthand. The colour can only be in the last layer; an omitted colour is
+ * `transparent` (its initial value). Other layers or parts that paint an image set `image`.
+ */
+export const parseBackgroundShorthand = (value: string): Background => {
+  if (isGlobal(value)) return { color: { kind: 'unknown', css: value }, image: false };
+  const image = IMAGE_FUNCTION.test(value);
+  if (hasVar(value)) return { color: { kind: 'unknown', css: value }, image };
+  const layers = value.split(',');
+  const last = layers.at(-1) ?? '';
+  const nodes = valueParser(last).nodes.filter((node) => node.type !== 'space' && node.type !== 'comment' && node.type !== 'div');
+  // Words that are not colours (positions, repeat, …) are skipped; currentColor is kept (not known at build time).
+  const colors = nodes.map(nodeColor).filter((color) => color.kind !== 'unknown' || isCurrentColor(color));
+  return { color: colors.at(-1) ?? { kind: 'transparent' }, image };
+};
+
+/** `background-image`: anything but `none` paints an image. */
+export const paintsImage = (value: string): boolean => value.trim().toLowerCase() !== 'none';

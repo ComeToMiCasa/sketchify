@@ -58,6 +58,28 @@ export const pickRules = (): ReadonlyArray<string> => {
   return [defaults, ...flips, ...seeds];
 };
 
+/**
+ * The hatch tile's shift for each seed (prototype values): neighbours start the shared tile at
+ * different places. Same formula as the drawings; seed 0 keeps the default `0 0`.
+ */
+export const HATCH_SHIFTS: ReadonlyArray<number> = [0, 61, 127];
+
+export const hatchPickRules = (): ReadonlyArray<string> => {
+  const positions = [1, 2, 3];
+  // Custom properties inherit: without a default on every element, an element of seed 0 would
+  // take its parent's shift.
+  const defaults = ':where(*) { --skh: 0px 0px; }';
+  return [defaults, ...positions.flatMap((a) =>
+    positions.flatMap((b) =>
+      positions.flatMap((c) => {
+        const seed = seedFor(a, b, c);
+        const shift = HATCH_SHIFTS[seed] ?? 0;
+        return seed === 0 ? [] : [`:where(:nth-child(3n+${a}) > :nth-child(3n+${b}) > :nth-child(3n+${c})) { --skh: ${shift}px ${shift}px; }`];
+      }),
+    ),
+  )];
+};
+
 export type NamedDrawing = { readonly name: string; readonly url: string };
 
 /** `@charset`, `@import` and `@layer a, b;` must stay before any rule. */
@@ -68,10 +90,10 @@ const isPrelude = (node: ChildNode): boolean =>
  * Puts the drawing variables, and the pick rules when some rule mixes, at the top of the file,
  * after the prelude at-rules. Nothing is added when there are no drawings.
  */
-export const emitVariants = (root: Root, drawings: ReadonlyArray<NamedDrawing>, mix: boolean): void => {
+export const emitVariants = (root: Root, drawings: ReadonlyArray<NamedDrawing>, mix: boolean, hatch = false): void => {
   if (drawings.length === 0) return;
   const vars = `:root {\n${drawings.map((drawing) => `  ${drawing.name}: ${drawing.url};`).join('\n')}\n}`;
-  const css = [vars, ...(mix ? pickRules() : [])].join('\n');
+  const css = [vars, ...(mix ? pickRules() : []), ...(hatch ? hatchPickRules() : [])].join('\n');
   const nodes = postcss.parse(css).nodes.map((node) => node.clone({ raws: { ...node.raws, before: '\n' } }));
 
   const end = root.nodes.findIndex((node) => !(node.type === 'comment' || isPrelude(node)));

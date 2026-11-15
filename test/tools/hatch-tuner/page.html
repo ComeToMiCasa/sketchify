@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>빗금 조절</title>
+<style>
+  :root { --ink: #1d2433; --muted: #5b6475; --line: #d8dbe2; --bg: #f6f6f3; }
+  body { margin: 0; font: 14px/1.5 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  .layout { display: grid; grid-template-columns: 360px 1fr; gap: 24px; padding: 24px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; padding: 16px; } }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p { margin: 0 0 16px; color: var(--muted); }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  #presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; }
+  button:hover { border-color: var(--ink); }
+  .slider { display: grid; grid-template-columns: 1fr 72px; gap: 4px 8px; margin-bottom: 12px; }
+  .slider span { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+  .slider input[type=number] { width: 100%; font: inherit; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+  #errors { color: #c62828; white-space: pre-wrap; font-size: 13px; }
+  #info { color: var(--muted); font-size: 13px; margin: 8px 0 16px; }
+  pre { background: #f2f3f6; border-radius: 6px; padding: 10px; white-space: pre-wrap; word-break: break-word; font-size: 12.5px; margin: 6px 0; }
+  .preview { display: grid; gap: 20px; }
+  .cards { display: flex; flex-wrap: wrap; gap: 20px; }
+  .hatched { background-repeat: repeat; background-clip: padding-box; background-color: transparent; }
+  .card { width: 220px; height: 130px; box-sizing: border-box; border: 2px solid var(--ink); border-radius: 12px; }
+  .bare { width: 220px; height: 130px; }
+  .big { width: 100%; max-width: 640px; height: 320px; box-sizing: border-box; border: 1px solid var(--ink); }
+  .text { max-width: 640px; padding: 16px; border: 1px solid var(--ink); }
+  .text p { margin: 0; color: var(--ink); background: #fff; display: inline; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <section class="panel">
+    <h1>빗금 조절</h1>
+    <p>플러그인의 빗금 그리기를 그대로 써서 보여줍니다. 값을 정하면 아래 코드를 <code>src/options.ts</code>의 <code>HATCH_PRESETS</code>에 붙이세요.</p>
+    <div id="presets"></div>
+    <div id="sliders"></div>
+    <label class="row">색 <input type="color" id="color" value="#3b82f6"></label>
+    <div id="errors"></div>
+    <div id="info"></div>
+    <label class="row">이 값을 넣을 프리셋 <select id="target"></select> <button type="button" id="copy">복사</button></label>
+    <pre id="code"></pre>
+    <p>또는 플러그인 옵션으로:</p>
+    <pre id="option"></pre>
+  </section>
+  <section class="preview">
+    <div class="cards">
+      <div class="card hatched"></div>
+      <div class="bare hatched"></div>
+    </div>
+    <div class="big hatched"></div>
+    <div class="text hatched"><p>글자 위에서 빗금이 얼마나 산만한지 볼 수 있는 문장입니다. 빗금은 글자 뒤 배경으로 깔립니다.</p></div>
+  </section>
+</div>
+<script>/*SCRIPT*/</script>
+</body>
+</html>

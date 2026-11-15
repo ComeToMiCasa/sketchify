@@ -21,7 +21,20 @@ type State = {
   readonly focus?: string;
 };
 
-type Border = { readonly ix: number; readonly rect: Rect; readonly width: number; readonly css: string };
+type Border = {
+  readonly ix: number;
+  readonly rect: Rect;
+  readonly width: number;
+  readonly css: string;
+  /** Draws a fill (M6a): compare the whole element, not only the band around the border. */
+  readonly fill: boolean;
+};
+
+/**
+ * `--sketch-fill` applies per rule, not by inheritance (the compiler cannot see the DOM). Registered
+ * as not inherited for the reading render only, so the browser's computed value means the same.
+ */
+const FILL_PER_RULE = "@property --sketch-fill { syntax: '*'; inherits: false; }\n";
 
 /** Numbers every element, so the flattened rules can address them. The same in every render. */
 const tag = (p: Page): Promise<void> =>
@@ -62,7 +75,11 @@ const computedBorders = (p: Page): Promise<ReadonlyArray<Border>> =>
         style: s.getPropertyValue(`border-${side}-style`),
         color: s.getPropertyValue(`border-${side}-color`),
       }));
-      if (!sides.some((side) => side.width > 0 && side.style !== 'none' && side.style !== 'hidden')) return [];
+      const fillMode = s.getPropertyValue('--sketch-fill').trim();
+      const fill = (fillMode === 'rough' || fillMode === 'marker' || fillMode === 'hatch') && s.backgroundColor !== 'rgba(0, 0, 0, 0)' && s.backgroundImage === 'none';
+      const hasBorder = sides.some((side) => side.width > 0 && side.style !== 'none' && side.style !== 'hidden');
+      if (!hasBorder && !fill) return [];
+      const paint = fillMode === '' ? '' : ` background-color: ${s.backgroundColor} !important; background-image: ${s.backgroundImage} !important; --sketch-fill: ${fillMode} !important;`;
       const r = el.getBoundingClientRect();
       const radius = ['top-left', 'top-right', 'bottom-right', 'bottom-left'].map((c) => s.getPropertyValue(`border-${c}-radius`)).join(' ');
       const decls = sides.map((side) => `border-${side.side}: ${side.width}px ${side.style} ${side.color} !important;`).join(' ');
@@ -71,7 +88,8 @@ const computedBorders = (p: Page): Promise<ReadonlyArray<Border>> =>
           ix: Number(el.getAttribute('data-ix')),
           rect: { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height },
           width: Math.max(...sides.map((side) => side.width)),
-          css: `[data-ix="${el.getAttribute('data-ix')}"] { ${decls} border-radius: ${radius} !important; }`,
+          css: `[data-ix="${el.getAttribute('data-ix')}"] { ${decls} border-radius: ${radius} !important;${paint} }`,
+          fill,
         },
       ];
     }),
@@ -92,6 +110,7 @@ const bandDifference = (a: Screenshot, b: Screenshot, border: Border): number =>
   const x1 = Math.min(a.width - 1, Math.ceil(rect.x + rect.width) + REACH);
   const y1 = Math.min(a.height - 1, Math.ceil(rect.y + rect.height) + REACH);
   const inBand = (x: number, y: number): boolean =>
+    border.fill ||
     x < rect.x + inside || x > rect.x + rect.width - inside || y < rect.y + inside || y > rect.y + rect.height - inside;
   const counts = Array.from({ length: (y1 - y0 + 1) * (x1 - x0 + 1) }, (_, i) => [x0 + (i % (x1 - x0 + 1)), y0 + Math.floor(i / (x1 - x0 + 1))] as const)
     .filter(([x, y]) => inBand(x, y))
@@ -109,7 +128,7 @@ const SAME = 0.02;
 
 /** Per element: how far the transformed CSS is from the drawing of its computed border. */
 const compare = async (p: Page, page: TestPage, state: State, edit: (css: string) => string = (css) => css): Promise<ReadonlyArray<readonly [string, number]>> => {
-  await enter(p, page, page.css, state);
+  await enter(p, page, FILL_PER_RULE + page.css, state);
   const borders = await computedBorders(p);
   const flattened = `${page.css}\n${borders.map((b) => b.css).join('\n')}\n`;
 
@@ -140,11 +159,16 @@ const INTERACTIONS: Readonly<Record<string, ReadonlyArray<State>>> = {
     { name: 'focus #btn-lg', width: 1000, scheme: 'light', focus: 'btn-lg' },
     { name: 'focus #field-invalid', width: 800, scheme: 'light', focus: 'field-invalid' },
   ],
+  fills: [
+    { name: 'hover #btn1', width: 800, scheme: 'light', hover: 'btn1' },
+    { name: 'hover #btn-flat, dark', width: 800, scheme: 'dark', hover: 'btn-flat' },
+  ],
+  hatch: [{ name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' }],
   boxes: [],
   forms: [],
 };
 
-for (const name of ['design-system', 'boxes', 'forms']) {
+for (const name of ['design-system', 'boxes', 'forms', 'fills', 'hatch']) {
   test.describe(`M4 draws what the original CSS shows: ${name}`, () => {
     const page = loadPage(name);
     for (const state of [...STATES, ...(INTERACTIONS[name] ?? [])]) {
@@ -185,4 +209,11 @@ test.describe('the oracle catches wrong drawings', () => {
     const results = await compare(p, page, { name: 'wide', width: 1000, scheme: 'light' }, withoutMediaCombos);
     expect(results.find(([label]) => label === '#btn-primary')?.[1]).toBeGreaterThan(SAME);
   });
+});
+
+test('the oracle compares fills too: without the plugin a rough fill differs (control)', async ({ page: p }) => {
+  const fills = loadPage('fills');
+  const results = await compare(p, fills, { name: 'plain', width: 800, scheme: 'light' }, () => fills.css);
+  expect(results.find(([label]) => label === '#block1')?.[1]).toBeGreaterThan(SAME);
+  expect(results.find(([label]) => label === '#bar')?.[1]).toBeGreaterThan(SAME);
 });

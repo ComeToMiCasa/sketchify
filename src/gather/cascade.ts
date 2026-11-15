@@ -6,13 +6,13 @@
 // through the CSS cascade (importance, specificity, source order); the result is the drawing.
 import type { Declaration } from 'postcss';
 import type { ResolvedOptions } from '../options';
-import { type BorderState, type RuleFacts, borderOf, isBorderProp } from '../read/collect';
+import { type BorderState, type RuleFacts, borderOf, isBackgroundProp, isBorderProp, paintsFill } from '../read/collect';
 import { type SelectorEntry, type Specificity, compareSpecificity, contains, unionEntries } from '../read/selectors';
 import { SIDES, usesVar } from '../read/values';
 import { type Condition, isSketchControl } from '../read/variables';
 import type { Diagnostic, Result } from '../report/diagnostics';
-import { type Scope, conditionUndrawableError, currentColorError, lookupFor, missingVarError, substitute } from './colors';
-import { type ConditionVariant, type DrawRequest, allTransparent, blockedByCurrentColor, colorsOf, drawRequestFor } from './request';
+import { type Scope, conditionUndrawableError, currentColorError, currentFillColorError, lookupFor, missingVarError, substitute } from './colors';
+import { type ConditionVariant, type DrawRequest, allTransparent, backgroundOf, blockedByCurrentColor, colorsOf, fillInCurrentColor, hatchFor, hatchInCurrentColor, paintRequestFor } from './request';
 
 /** One complex selector of one rule. A rule with a selector list gives one item per selector. */
 export type Item = {
@@ -64,7 +64,7 @@ export const isComplete = (facts: RuleFacts): boolean =>
 export const isSelfContained = (facts: RuleFacts): boolean =>
   !facts.partial &&
   !facts.border.unsupported &&
-  SIDES.some((side) => Object.values(facts.border.sides[side]).every((part: { readonly kind: string }) => part.kind !== 'unset'));
+  (asksForFill(facts) || SIDES.some((side) => Object.values(facts.border.sides[side]).every((part: { readonly kind: string }) => part.kind !== 'unset')));
 
 // --- The cascade -------------------------------------------------------------
 
@@ -101,7 +101,15 @@ export type Computed = {
   readonly reads: ReadonlyArray<{ readonly decl: Declaration; readonly names: ReadonlyArray<string> }>;
   /** A winning border declaration is `!important`. */
   readonly important: boolean;
+  /** The winning background colour as the CSS wrote it (`var(--fill)`), or the resolved colour. */
+  readonly backgroundAsWritten: string;
 };
+
+/** Declarations the drawing reads: the border, and the background and `--sketch-fill` for fills (M6). */
+export const isPaintProp = (prop: string): boolean => isBorderProp(prop) || isBackgroundProp(prop) || prop.toLowerCase() === '--sketch-fill';
+
+/** The rule asks for a drawn fill (`--sketch-fill: rough | marker | hatch`). */
+export const asksForFill = (facts: RuleFacts): boolean => paintsFill(facts.border.fill);
 
 /** The element's border after the cascade, with `var()` resolved in one environment. */
 export const computeBorder = (applicable: ReadonlyArray<Item>, env: ReadonlyMap<string, string>): Computed => {
@@ -111,7 +119,7 @@ export const computeBorder = (applicable: ReadonlyArray<Item>, env: ReadonlyMap<
   );
   const lookup = lookupFor(custom, env);
   const steps = ordered
-    .filter((w) => isBorderProp(w.decl.prop))
+    .filter((w) => isPaintProp(w.decl.prop))
     .map((w) => {
       const plain = { prop: w.decl.prop, value: w.decl.value, important: w.important };
       if (!usesVar(w.decl.value)) return { decl: plain, diagnostics: [], read: undefined };
@@ -122,20 +130,42 @@ export const computeBorder = (applicable: ReadonlyArray<Item>, env: ReadonlyMap<
         : { decl: plain, diagnostics: [missingVarError(w.decl, result.name, result.cycle)], read };
     });
   const border = borderOf(steps.map((step) => step.decl));
+  // The background colour as written (with its `var()`), to show it again where needed.
+  const written = borderOf(ordered.filter((w) => isBackgroundProp(w.decl.prop)).map((w) => ({ prop: w.decl.prop, value: w.decl.value, important: w.important })));
+  const backgroundAsWritten = written.background.color.kind === 'unknown' && usesVar(written.background.color.css) ? written.background.color.css : backgroundOf(border);
   return {
     border,
+    backgroundAsWritten,
     diagnostics: steps.flatMap((step) => step.diagnostics),
     reads: steps.flatMap((step) => (step.read ? [step.read] : [])),
     important: border.important,
   };
 };
 
+/** A hatch fill (M6b): its colour, and other colours (or none) under conditions such as dark mode. */
+export type HatchOutcome = {
+  readonly color: string;
+  readonly variants: ReadonlyArray<{ readonly conditions: ReadonlyArray<Condition>; readonly color: string | undefined }>;
+};
+
 /** What the element should look like. */
 export type Outcome =
-  /** A hand-drawn border, with variants for conditions that change its variables. */
-  | { readonly kind: 'draw'; readonly request: DrawRequest; readonly variants: ReadonlyArray<ConditionVariant> }
+  /**
+   * A hand-drawn border, with variants for conditions that change its variables. `background`:
+   * the original background colour to show again, where a rule's drawn fill (with its
+   * `background-color: transparent`) reaches an element that does not get a fill.
+   */
+  | {
+      readonly kind: 'draw';
+      readonly request: DrawRequest;
+      readonly variants: ReadonlyArray<ConditionVariant>;
+      readonly background?: string;
+      readonly hatch?: HatchOutcome;
+    }
   /** A border the drawing cannot express (dashed, none, mixed colours): shown as the original CSS would. */
-  | { readonly kind: 'plain'; readonly colors: string }
+  | { readonly kind: 'plain'; readonly colors: string; readonly background?: string; readonly hatch?: HatchOutcome }
+  /** Nothing to do for the border (no drawing reaches the element); only its background (hatch). */
+  | { readonly kind: 'paint'; readonly background?: string; readonly hatch?: HatchOutcome }
   /** Left alone: the rules use `border-image` themselves or logical properties. */
   | { readonly kind: 'leave' };
 
@@ -159,17 +189,39 @@ export const evaluate = (
   if (base.diagnostics.length > 0) return { value: leave, diagnostics: base.diagnostics };
   if (base.border.hasBorderImage || base.border.unsupported) return { value: leave, diagnostics: [] };
 
-  const request = drawRequestFor(base.border, options);
-  if (!request) {
-    if (blockedByCurrentColor(base.border, options)) return { value: leave, diagnostics: [currentColorError(anchor)] };
-    return { value: { outcome: { kind: 'plain', colors: colorsOf(base.border) }, important: base.important, reads: base.reads }, diagnostics: [] };
-  }
-
+  if (hatchInCurrentColor(base.border)) return { value: leave, diagnostics: [currentFillColorError(anchor)] };
+  const request = paintRequestFor(base.border, options);
+  const hatch = hatchFor(base.border);
+  // A rule here draws a fill and hides its background; if this element gets none, show it again.
+  const filled = (request?.kind === 'nine-slice' && request.fill !== undefined) || hatch !== undefined;
+  const background = !filled && applicable.some((item) => asksForFill(item.facts)) ? { background: base.backgroundAsWritten } : {};
   const usesVariables = base.reads.length > 0;
   const conditional = usesVariables ? scope.conditional.map((c) => ({ conditions: c.conditions, computed: computeBorder(applicable, c.env) })) : [];
+  const hatchPart = hatch
+    ? {
+        hatch: {
+          color: hatch.color,
+          variants: conditional.flatMap(({ conditions, computed }) => {
+            const color = hatchFor(computed.border)?.color;
+            return color === hatch.color ? [] : [{ conditions, color }];
+          }),
+        },
+      }
+    : {};
+  if (!request) {
+    if (blockedByCurrentColor(base.border, options)) {
+      const error = fillInCurrentColor(base.border) ? currentFillColorError(anchor) : currentColorError(anchor);
+      return { value: leave, diagnostics: [error] };
+    }
+    return {
+      value: { outcome: { kind: 'plain', colors: colorsOf(base.border), ...background, ...hatchPart }, important: base.important, reads: base.reads },
+      diagnostics: [],
+    };
+  }
+
   const outcomes = conditional.map(({ conditions, computed }): Result<ReadonlyArray<ConditionVariant>> => {
     if (computed.diagnostics.length > 0) return { value: [], diagnostics: computed.diagnostics };
-    const variant = drawRequestFor(computed.border, options);
+    const variant = paintRequestFor(computed.border, options);
     if (variant) return { value: JSON.stringify(variant) === JSON.stringify(request) ? [] : [{ conditions, request: variant }], diagnostics: [] };
     if (allTransparent(computed.border)) return { value: [{ conditions, request: undefined }], diagnostics: [] };
     const error = blockedByCurrentColor(computed.border, options) ? currentColorError(anchor) : conditionUndrawableError(anchor, conditions);
@@ -179,7 +231,7 @@ export const evaluate = (
   const reads = [...base.reads, ...conditional.flatMap((c) => c.computed.reads)];
   if (diagnostics.length > 0) return { value: { ...leave, reads }, diagnostics };
   return {
-    value: { outcome: { kind: 'draw', request, variants: outcomes.flatMap((o) => o.value) }, important: base.important, reads },
+    value: { outcome: { kind: 'draw', request, variants: outcomes.flatMap((o) => o.value), ...background, ...hatchPart }, important: base.important, reads },
     diagnostics: [],
   };
 };
@@ -209,16 +261,19 @@ export const familiesOf = (items: ReadonlyArray<Item>, scope: Scope): ReadonlyAr
   const bases = complete.filter((item) => parentsOf(item, complete).length === 0);
   return bases.map((base) => {
     const around = items.filter((item) => item.facts !== base.facts && appliesTo(base, elementOfItem(item)));
-    const borderItems = [base, ...around.filter((item) => item.facts.decls.some((d) => isBorderProp(d.prop)))];
+    // Background rules matter only where a rule of the family draws a fill (M6a).
+    const fills = [base, ...around].some((item) => asksForFill(item.facts));
+    const paints = (prop: string): boolean => isBorderProp(prop) || (fills && (isBackgroundProp(prop) || prop.toLowerCase() === '--sketch-fill'));
+    const borderItems = [base, ...around.filter((item) => item.facts.decls.some((d) => paints(d.prop)))];
     // Variables the border reads, following variables inside variables (root values and members' own).
     const definitions = (name: string): ReadonlyArray<string> => [
       ...[scope.base, ...scope.conditional.map((c) => c.env)].flatMap((env) => (env.has(name) ? [env.get(name) ?? ''] : [])),
       ...[base, ...around].flatMap((item) => item.facts.decls.filter((d) => d.prop === name).map((d) => d.value)),
     ];
-    const start = borderItems.flatMap((item) => item.facts.decls.filter((d) => isBorderProp(d.prop)).flatMap((d) => varNames(d.value)));
+    const start = borderItems.flatMap((item) => item.facts.decls.filter((d) => paints(d.prop)).flatMap((d) => varNames(d.value)));
     const used = closure(start, (name) => definitions(name).flatMap(varNames));
     const members = around.filter(
-      (item) => item.facts.decls.some((d) => isBorderProp(d.prop)) || item.facts.decls.some((d) => used.has(d.prop)),
+      (item) => item.facts.decls.some((d) => paints(d.prop)) || item.facts.decls.some((d) => used.has(d.prop)),
     );
     return { base, members };
   });

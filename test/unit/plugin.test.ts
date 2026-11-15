@@ -370,3 +370,91 @@ describe('one-sided lines', () => {
     expect(await errorOf('.b { border-bottom: 1px solid; }\n')).toContain('currentColor');
   });
 });
+
+// --- M6a: rough and marker fills -------------------------------------------------
+
+describe('fills', () => {
+  it('draws the fill with the border, hides the original background and drops the control', async () => {
+    const out = shape(await transform('.a { border: 2px solid #000; background: #ffe38a; --sketch-fill: rough; padding: 4px; }\n'));
+    expect(out).toBe('.a { border: 2px solid #000; background: #ffe38a; border-color: transparent; background-color: transparent; SLOTS; border-image: var(--sk) 14 fill / 14px / 5px stretch; padding: 4px; }\n');
+  });
+
+  it('draws a fill without a border, and a marker that reaches past the element', async () => {
+    expect(shape(await transform('.bar { height: 8px; background-color: blue; border-radius: 4px; --sketch-fill: rough; }\n'))).toContain('border-image: var(--sk) 6 fill / 6px / 2px stretch;');
+    expect(shape(await transform('.hl { background: #fff59d; --sketch-fill: marker; }\n'))).toContain('border-image: var(--sk) 10 fill / 10px / 8px stretch;');
+  });
+
+  it('a state that changes the background colour redraws the fill', async () => {
+    const out = shape(await transform('.btn { border: 2px solid #000; background: #eee; --sketch-fill: rough; }\n.btn:hover { background-color: #ddd; }\n'));
+    expect(out).toContain('.btn:hover { background-color: #ddd; border-color: transparent; background-color: transparent; SLOTS; border-image: var(--sk) 14 fill / 14px / 5px stretch; }');
+  });
+
+  it('shows the original background again (as written) where a rule turns the fill off', async () => {
+    const out = shape(await transform(':root { --f: #eee; }\n.btn { border: 2px solid #000; background: var(--f); --sketch-fill: rough; }\n.btn.flat { --sketch-fill: solid; }\n'));
+    expect(out).toContain('.btn.flat { border-color: transparent; background-color: var(--f); SLOTS; border-image: var(--sk) 14 / 14px / 5px stretch; }');
+  });
+
+  it('leaves a background image and a one-sided line alone', async () => {
+    const css = '.a { border-bottom: 1px solid red; background: #eee; --sketch-fill: rough; }\n';
+    expect(await transform(css)).toBe('.a { border-bottom: 1px solid red; background: #eee; }\n');
+    expect(shape(await transform('.b { border: 1px solid red; background: url(a.png) #eee; --sketch-fill: rough; }\n'))).not.toContain(' fill /');
+  });
+
+  it('background rules join a family only when a rule of it draws a fill', async () => {
+    const plain = await transform('.btn { border: 2px solid #000; background: #eee; }\n.btn:hover { background-color: #ddd; }\n');
+    expect(plain).toContain('.btn:hover { background-color: #ddd; }');
+  });
+
+  it.each([
+    ['an unknown value', '.a { --sketch-fill: wavy; }', '`wavy`'],
+    ['currentColor', '.a { background: currentColor; --sketch-fill: rough; }', '채움 색을 빌드 때 알 수 없습니다'],
+  ])('%s is an error', async (_name, css, text) => {
+    expect(await errorOf(css)).toContain(text);
+  });
+});
+
+// --- M6b: hatch ------------------------------------------------------------------
+
+describe('hatch fill', () => {
+  const HATCH = /background-color: transparent; background-image: var\(--sk-[0-9a-f]{8}\); background-size: 192px 192px; background-repeat: repeat; background-clip: padding-box; background-position: var\(--skh, 0 0\);/;
+
+  it('draws a repeated hatch tile as the background, next to the border drawing', async () => {
+    const out = shape(await transform('.a { border: 2px solid #000; background: #ffe38a; --sketch-fill: hatch; }\n'));
+    expect(out).toMatch(HATCH);
+    expect(out).toContain('border-image: var(--sk) 14 / 14px / 5px stretch;');
+    expect(out).not.toContain(' fill /');
+    expect(out).not.toContain('--sketch-fill');
+  });
+
+  it('works without a border and with a one-sided line', async () => {
+    expect(await transform('.a { background-color: #ffe38a; --sketch-fill: hatch; }\n')).toMatch(/^:root \{[\s\S]*\.a \{ background-color: #ffe38a; background-color: transparent; background-image: var\(--sk-[0-9a-f]{8}\);[^}]*\}\n$/);
+    expect(shape(await transform('.b { border-bottom: 1px solid red; background: #eee; --sketch-fill: hatch; }\n'))).toMatch(HATCH);
+  });
+
+  it('adds the tile-shift rules only to files that hatch', async () => {
+    const hatched = await transform('.a { background: #eee; --sketch-fill: hatch; }\n');
+    // A default for every element (custom properties inherit) and the 18 shifted positions.
+    expect((hatched.match(/--skh: \d+px \d+px;/g) ?? []).length).toBe(19);
+    expect(hatched).toContain(':where(*) { --skh: 0px 0px; }');
+    expect(hatched).toContain('{ --skh: 61px 61px; }');
+    expect(await transform('.a { border: 1px solid red; }\n')).not.toContain('--skh');
+  });
+
+  it('changes only the tile on hover and in dark mode', async () => {
+    const out = shape(
+      await transform(':root { --f: #ffe38a; }\n@media (prefers-color-scheme: dark) { :root { --f: #8a6d00; } }\n.a { background: var(--f); --sketch-fill: hatch; }\n.a:hover { background-color: #9be7a8; }\n'),
+    );
+    expect(out).toMatch(/@media \(prefers-color-scheme: dark\) \{ \.a \{ background-image: var\(--sk-[0-9a-f]{8}\); \} \}/);
+    expect(out).toMatch(/\.a:hover \{ background-color: #9be7a8; background-color: transparent; background-image: var\(--sk-[0-9a-f]{8}\);/);
+  });
+
+  it('follows the hatch options', async () => {
+    const out = await transform('.a { background: #eee; --sketch-fill: hatch; }\n', { hatch: { gap: 8, pressureLength: 100 } });
+    expect(out).toContain('background-size: 144px 144px;'); // 2 × 8 × round(100 / (√2 × 8))
+  });
+
+  it('currentColor is an error, an image background is left alone', async () => {
+    expect(await errorOf('.a { background: currentColor; --sketch-fill: hatch; }')).toContain('채움 색을 빌드 때 알 수 없습니다');
+    expect(await transform('.a { background: url(a.png) #eee; --sketch-fill: hatch; }\n')).toBe('.a { background: url(a.png) #eee; }\n');
+  });
+});

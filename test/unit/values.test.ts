@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   expandBox,
+  parseBackgroundShorthand,
   parseBorderRadius,
   parseBorderShorthand,
   parseColor,
@@ -100,5 +101,21 @@ describe('radius', () => {
 
   it('elliptical corner longhand is unknown', () => {
     expect(parseCornerRadius('6px 3px')).toEqual({ kind: 'unknown' });
+  });
+});
+
+describe('parseBackgroundShorthand', () => {
+  it.each([
+    ['#ffe38a', { color: { kind: 'literal', css: '#ffe38a' }, image: false }],
+    ['url(a.png) no-repeat center / cover, red', { color: { kind: 'literal', css: 'red' }, image: true }],
+    ['linear-gradient(red, blue)', { color: { kind: 'transparent' }, image: true }],
+    ['none', { color: { kind: 'transparent' }, image: false }],
+    ['currentColor', { color: { kind: 'unknown', css: 'currentColor' }, image: false }],
+  ] as const)('%s', (value, expected) => {
+    expect(parseBackgroundShorthand(value)).toEqual(expected);
+  });
+
+  it('cannot split values with var()', () => {
+    expect(parseBackgroundShorthand('var(--fill)')).toEqual({ color: { kind: 'unknown', css: 'var(--fill)' }, image: false });
   });
 });
