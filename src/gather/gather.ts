@@ -6,9 +6,9 @@
 // else than the original CSS.
 import type { Declaration } from 'postcss';
 import type { ResolvedOptions } from '../options';
-import { type RuleFacts, isBackgroundProp, isBorderLineProp, isBorderProp, isSizeProp, parseFillMode } from '../read/collect';
+import { type RuleFacts, isBackgroundProp, isBorderLineProp, isBorderProp, isSizeProp, isUnderlineProp, parseFillMode } from '../read/collect';
 import { parseSizeHint } from '../read/values';
-import { selectorText } from '../read/selectors';
+import { isInlineByType, selectorText } from '../read/selectors';
 import type { Condition } from '../read/variables';
 import type { Diagnostic, Result } from '../report/diagnostics';
 import {
@@ -55,15 +55,26 @@ const withoutBackground = (outcome: Exclude<Outcome, { readonly kind: 'leave' }>
   return rest;
 };
 
+/** Without the underline's `off`/`native` (nothing to undo where no drawn underline reaches). */
+const withoutOff = (outcome: Outcome): Outcome => {
+  if (outcome.kind === 'leave' || outcome.underline === undefined) return outcome;
+  const { underline: _underline, ...rest } = outcome;
+  return rest;
+};
+
 /** Where new declarations go in a rule: after its last border declaration (or variable, or size for an exact hatch). */
 export const anchorOf = (facts: RuleFacts, paints = false): Declaration | undefined =>
   // A drawn fill (or a restored background) must come after the background declarations too:
   // a later `background` shorthand would set the colour again.
-  (paints ? facts.decls.filter((d) => isBorderLineProp(d.prop.toLowerCase()) || isBackgroundProp(d.prop)).at(-1) : undefined) ??
+  // An underline (M6d) also comes after the rule's own `text-decoration`, which it turns off.
+  (paints
+    ? facts.decls.filter((d) => isBorderLineProp(d.prop.toLowerCase()) || isBackgroundProp(d.prop) || /^text-decoration/i.test(d.prop)).at(-1)
+    : undefined) ??
   facts.lastBorderDecl ??
   facts.decls.filter((d) => isBorderProp(d.prop)).at(-1) ??
   facts.decls.filter((d) => d.prop.startsWith('--')).at(-1) ??
-  facts.decls.filter((d) => isSizeProp(d.prop)).at(-1);
+  facts.decls.filter((d) => isSizeProp(d.prop)).at(-1) ??
+  facts.decls.filter((d) => isUnderlineProp(d.prop)).at(-1);
 
 /** The rule's selector as written, or resolved in full when the rule is nested (CSS nesting). */
 const ruleSelector = (facts: RuleFacts): string =>
@@ -123,15 +134,18 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
   const families = familiesOf(items, scope);
   const tooLarge = families.filter((f) => f.members.length > MAX_MEMBERS);
   const usable = families.filter((f) => f.members.length <= MAX_MEMBERS);
+  // A family that only underlines (M6d) and is too large keeps the browser's underlines: an `a`
+  // rule easily gathers many `… a` rules, and an underline is not worth failing the build for.
+  const reported = tooLarge.filter((f) => isSelfContained(f.base.facts));
   const structural = [
     ...sketchErrors,
     ...partialErrors(items, complete),
-    ...tooLarge.flatMap((f) => (f.base.facts.lastBorderDecl ? [familyTooLargeError(f.base.facts.lastBorderDecl, f.members.length, MAX_MEMBERS)] : [])),
+    ...reported.flatMap((f) => (f.base.facts.lastBorderDecl ? [familyTooLargeError(f.base.facts.lastBorderDecl, f.members.length, MAX_MEMBERS)] : [])),
   ];
 
   const applicableTo = (element: Element): ReadonlyArray<Item> => items.filter((item) => appliesTo(item, element));
   const evaluateElement = (element: Element, anchor: Item): Result<Evaluated> =>
-    evaluate(applicableTo(element), scope, options, anchorOf(anchor.facts));
+    evaluate(applicableTo(element), scope, options, anchorOf(anchor.facts), isInlineByType(element.entry));
 
   // Each rule (selector) on its own, with its parents.
   const singleItems = [...new Map(usable.flatMap((f) => [f.base, ...f.members]).map((item) => [itemKey(item), item])).values()];
@@ -148,14 +162,18 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
     ((outcome.kind === 'draw' || outcome.kind === 'plain' || outcome.kind === 'paint') && outcome.hatch !== undefined),
   );
   const fillReaches = (element: Element, except?: Item): boolean => fills.some((s) => s.item !== except && appliesTo(s.item, element));
+  // Rules whose drawn underline (M6d) turns the browser's off, which another element may need back.
+  const lines = singles.filter(({ evaluated: { outcome } }) => outcome.kind === 'draw' && outcome.request.kind === 'underline');
+  const underlineReaches = (element: Element, except?: Item): boolean => lines.some((s) => s.item !== except && appliesTo(s.item, element));
 
   /**
    * What to write for an outcome: a plain border is written only where a drawing reaches the
    * element (to undo it); elsewhere only its background part (hatch, restored colour) is.
    */
-  const toWritten = (desired: Outcome, reaches: boolean, fillReaches: boolean): Emission['outcome'] | undefined => {
+  const toWritten = (desired: Outcome, reaches: boolean, fillReaches: boolean, lineReaches: boolean): Emission['outcome'] | undefined => {
     // The original background needs showing again only where another rule's drawn fill hid it.
-    const outcome = fillReaches || desired.kind === 'leave' ? desired : withoutBackground(desired);
+    const restored = fillReaches || desired.kind === 'leave' ? desired : withoutBackground(desired);
+    const outcome = lineReaches ? restored : withoutOff(restored);
     switch (outcome.kind) {
       case 'leave':
         return undefined;
@@ -164,7 +182,11 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
         return outcome;
       case 'plain': {
         if (reaches) return outcome;
-        const paint = { ...(outcome.background === undefined ? {} : { background: outcome.background }), ...(outcome.hatch ? { hatch: outcome.hatch } : {}) };
+        const paint = {
+          ...(outcome.background === undefined ? {} : { background: outcome.background }),
+          ...(outcome.hatch ? { hatch: outcome.hatch } : {}),
+          ...(outcome.underline ? { underline: outcome.underline } : {}),
+        };
         return Object.keys(paint).length > 0 ? { kind: 'paint', ...paint } : undefined;
       }
       default: {
@@ -176,7 +198,7 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
 
   const singleLooks = singles.flatMap(({ item, evaluated }): ReadonlyArray<{ readonly item: Item; readonly look: Candidate['look'] }> => {
     const element = elementOfItem(item);
-    const written = toWritten(evaluated.outcome, drawingReaches(element, item), fillReaches(element, item));
+    const written = toWritten(evaluated.outcome, drawingReaches(element, item), fillReaches(element, item), underlineReaches(element, item));
     if (written) return [{ item, look: written }];
     return hasShorthand(item.facts) ? [{ item, look: { kind: 'reset' } }] : [];
   });
@@ -261,7 +283,7 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
   const comboEmissions = [...state.combos]
     .sort((a, b) => a.anchor.facts.order - b.anchor.facts.order || a.seq - b.seq)
     .flatMap(({ element, anchor, evaluated }): ReadonlyArray<Emission> => {
-      const outcome = toWritten(evaluated.outcome, drawingReaches(element), fillReaches(element));
+      const outcome = toWritten(evaluated.outcome, drawingReaches(element), fillReaches(element), underlineReaches(element));
       return outcome
         ? [
             {

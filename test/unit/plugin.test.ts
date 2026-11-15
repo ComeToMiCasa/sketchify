@@ -543,3 +543,69 @@ describe('exact hatch (M6c)', () => {
     expect(await transform(css)).toBe(await transform(css));
   });
 });
+
+describe('underlines (M6d)', () => {
+  const LINE = /border-color: transparent; SLOTS; border-image: var\(--sk\) 0 16 11.5 16 \/ 0 16px 11.5px 16px \/ 11.5px 3px 6.5px 3px stretch; text-decoration-line: none;/;
+
+  it('draws a solid underline on an inline element as a bottom line image, and turns the browser one off', async () => {
+    const out = await transform('a { color: #2563eb; text-decoration: underline; }\n');
+    expect(shape(out)).toMatch(LINE);
+    expect(out).toContain("stroke='%232563eb'");
+    // Neighbour variants, as for borders.
+    expect(out).toContain(':where(:nth-child(4n+2))');
+    // The border image takes no room: no border width is set.
+    expect(out).not.toMatch(/border(-bottom)?-width|border: /);
+  });
+
+  it('takes the colour from text-decoration-color, else color, and the width from a px thickness', async () => {
+    const thick = await transform('a { color: red; text-decoration: underline #00f 3px; }\n');
+    expect(thick).toContain("stroke='%2300f'");
+    expect(thick).toContain('/ 13px 3px 8px 3px stretch;');
+    expect(await transform('a { color: red; text-decoration-line: underline; text-decoration-color: currentColor; }\n')).toContain("stroke='red'");
+  });
+
+  it.each([
+    ['a class without a type', '.link { color: red; text-decoration: underline; }'],
+    ['a block', 'p { color: red; text-decoration: underline; }'],
+    ['an inline element made a block', 'a { display: block; color: red; text-decoration: underline; }'],
+    ['a dotted line', 'a { color: red; text-decoration: underline dotted; }'],
+    ['two lines', 'a { color: red; text-decoration: underline overline; }'],
+    ['an unknown colour', 'a { color: inherit; text-decoration: underline; }'],
+    ['its own border-image', 'a { color: red; text-decoration: underline; border-image: url(x.png) 1; }'],
+    ['a pseudo-element', 'a::after { color: red; text-decoration: underline; }'],
+  ])('leaves the browser underline: %s', async (_name, css) => {
+    expect(await transform(`${css}\n`)).toBe(`${css}\n`);
+  });
+
+  it('draws on a class made inline, and with a background image', async () => {
+    expect(shape(await transform('.link { display: inline; color: red; text-decoration: underline; }\n'))).toMatch(LINE);
+    expect(shape(await transform('a { color: red; text-decoration: underline; background: url(x.png); }\n'))).toMatch(LINE);
+  });
+
+  it('keeps the browser underline on an element with a drawn border', async () => {
+    const out = shape(await transform('a { color: red; text-decoration: underline; }\na.btn { border: 1px solid #000; }\n'));
+    expect(out).toMatch(/a\.btn \{ border: 1px solid #000; border-color: transparent; SLOTS; border-image: var\(--sk\) 14 \/ 14px \/ 5\.5px stretch; text-decoration-line: underline; \}/);
+  });
+
+  it('follows hover and dark mode: another colour, or off', async () => {
+    const out = shape(
+      await transform(
+        ':root { --c: #2563eb; }\n@media (prefers-color-scheme: dark) { :root { --c: #f59e0b; } }\na { color: var(--c); text-decoration: underline; }\na:hover { color: #16a34a; }\na.quiet:hover { text-decoration: none; }\n',
+      ),
+    );
+    expect(out).toMatch(/@media \(prefers-color-scheme: dark\) \{ a \{ SLOTS; border-image: var\(--sk\)[^}]*text-decoration-line: none; \} \}/);
+    expect(out).toMatch(/a:hover \{ color: #16a34a; border-color: transparent; SLOTS; border-image: var\(--sk\)/);
+    expect(out).toContain('a.quiet:hover { text-decoration: none; border-image: none; border-color: currentcolor; text-decoration-line: none; }');
+  });
+
+  it('gives the browser underline back where a drawn one cannot follow, and other lines their own value', async () => {
+    const out = await transform('a { color: red; text-decoration: underline; }\n.footer a { color: inherit; }\na.del { text-decoration: line-through; }\n');
+    expect(out).toContain('.footer a { color: inherit; border-image: none; border-color: currentcolor; text-decoration-line: underline; }');
+    expect(out).toContain('a.del { text-decoration: line-through; border-image: none; border-color: currentcolor; text-decoration-line: line-through; }');
+  });
+
+  it('is left alone where nothing asks for an underline', async () => {
+    const css = '.tip { text-decoration: underline dotted; }\n.link { color: #2f55d4; text-decoration: none; border-bottom: 2px solid #2f55d4; }\n';
+    expect(await transform(css)).not.toContain('text-decoration-line');
+  });
+});

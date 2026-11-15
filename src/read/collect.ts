@@ -14,9 +14,16 @@ import {
   type Width,
   type Background,
   type BoxSizing,
+  type DecorationLine,
+  type Display,
   type SizeHint,
   parseBackgroundShorthand,
   parseBoxSizing,
+  parseDecorationLine,
+  parseDecorationStyle,
+  parseDecorationThickness,
+  parseDisplay,
+  parseTextDecoration,
   parseLength,
   parsePadding,
   parseSizeHint,
@@ -54,6 +61,19 @@ export type BorderState = {
   readonly fill: Declared<FillMode>;
   /** What the element's size depends on (M6c exact hatch). */
   readonly size: SizeState;
+  /** The text decoration and what it depends on (M6d underlines). */
+  readonly text: TextState;
+};
+
+/** `text-decoration` parts, the text colour and `display` (spec "한 변 border, hr, 밑줄"). */
+export type TextState = {
+  readonly line: Declared<DecorationLine>;
+  readonly style: Declared<Style>;
+  readonly decorationColor: Declared<Color>;
+  /** px; undefined is the default (`auto`, unset, other units). */
+  readonly thickness: number | undefined;
+  readonly color: Declared<Color>;
+  readonly display: Declared<Display>;
 };
 
 /** The declarations that give an element's border-box size (spec "크기 처리"). */
@@ -130,6 +150,7 @@ export const EMPTY_BORDER: BorderState = {
     boxSizing: UNSET,
     hint: UNSET,
   },
+  text: { line: UNSET, style: UNSET, decorationColor: UNSET, thickness: undefined, color: UNSET, display: UNSET },
 };
 
 type Part = keyof SideState;
@@ -177,6 +198,37 @@ const applySize = (state: BorderState, prop: string, value: string): BorderState
   return set({ padding: { top: UNKNOWN_LENGTH, right: UNKNOWN_LENGTH, bottom: UNKNOWN_LENGTH, left: UNKNOWN_LENGTH } });
 };
 
+/** Declarations an underline reads (M6d): the decoration, the text colour and `display`. */
+export const isUnderlineProp = (prop: string): boolean => {
+  const p = prop.toLowerCase();
+  return p === 'text-decoration' || /^text-decoration-(line|style|color|thickness)$/.test(p) || p === 'color' || p === 'display';
+};
+
+const isDecorationProp = (prop: string): boolean => prop === 'text-decoration' || prop.startsWith('text-decoration-');
+
+const applyText = (state: BorderState, prop: string, value: string): BorderState => {
+  const text = state.text;
+  const set = (patch: Partial<TextState>): BorderState => ({ ...state, text: { ...text, ...patch } });
+  switch (prop) {
+    case 'text-decoration': {
+      const parts = parseTextDecoration(value);
+      return set({ line: parts.line, style: parts.style, decorationColor: parts.color, thickness: parts.thickness });
+    }
+    case 'text-decoration-line':
+      return set({ line: parseDecorationLine(value) });
+    case 'text-decoration-style':
+      return set({ style: parseDecorationStyle(value) });
+    case 'text-decoration-color':
+      return set({ decorationColor: parseColor(value) });
+    case 'text-decoration-thickness':
+      return set({ thickness: parseDecorationThickness(value) });
+    case 'color':
+      return set({ color: parseColor(value) });
+    default:
+      return set({ display: parseDisplay(value) });
+  }
+};
+
 /** Background declarations a fill reads (M6). */
 export const isBackgroundProp = (prop: string): boolean => /^background(-color|-image)?$/i.test(prop);
 
@@ -211,6 +263,7 @@ export const applyDeclaration = (state: BorderState, prop: string, value: string
 
   if (p === '--sketch-fill') return { ...state, fill: parseFillMode(value) };
   if (isSizeProp(p)) return applySize(state, p, value);
+  if (isUnderlineProp(p)) return applyText(isDecorationProp(p) ? { ...state, important: state.important || important } : state, p, value);
   if (isBackgroundProp(p)) return applyBackground(state, p, value, important);
   if (p.startsWith('border-image')) return { ...marked, hasBorderImage: true };
   if (LOGICAL_PROP.test(p)) return { ...marked, unsupported: true };
@@ -306,7 +359,9 @@ export const factsOfRule = (rule: Rule, placed: Omit<Placed, 'rule'> = { selecto
 /** Whether the rule matters to borders: border, background or size declarations, variables (which borders may read) or `--sketch`. */
 const mattersToBorders = (facts: RuleFacts): boolean =>
   facts.sketch.kind !== 'none' ||
-  facts.decls.some((decl) => isBorderProp(decl.prop) || isBackgroundProp(decl.prop) || isSizeProp(decl.prop) || decl.prop.startsWith('--'));
+  facts.decls.some(
+    (decl) => isBorderProp(decl.prop) || isBackgroundProp(decl.prop) || isSizeProp(decl.prop) || isUnderlineProp(decl.prop) || decl.prop.startsWith('--'),
+  );
 
 /** Facts for every style rule that matters to borders, in source order. `@keyframes` are skipped. */
 export const collect = (root: Root): Result<ReadonlyArray<RuleFacts>> => ({

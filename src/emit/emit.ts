@@ -44,6 +44,30 @@ const imageDecls = (image: BorderImage, important: boolean): ReadonlyArray<postc
 /** A hatch background (M6b): the tile's variable and size. `none`: no hatch here (a condition removes it). */
 export type HatchLook = { readonly kind: 'tile'; readonly tile: string; readonly size: number } | { readonly kind: 'none' };
 
+/**
+ * The text decoration around a drawn underline (M6d), which is a `border-image` like any border
+ * drawing: `hide` turns the browser's underline off under the drawing; `native` brings it back
+ * where the drawing does not show; `off` writes back the element's own line (`none`, `line-through`)
+ * over another rule's `hide`.
+ */
+export type UnderlineLook = { readonly kind: 'hide' | 'native' } | { readonly kind: 'off'; readonly line?: string };
+
+const underlineDecls = (underline: UnderlineLook | undefined, important: boolean): ReadonlyArray<postcss.Declaration> => {
+  if (!underline) return [];
+  switch (underline.kind) {
+    case 'hide':
+      return [postcss.decl({ prop: 'text-decoration-line', value: 'none', important })];
+    case 'native':
+      return [postcss.decl({ prop: 'text-decoration-line', value: 'underline', important })];
+    case 'off':
+      return underline.line === undefined ? [] : [postcss.decl({ prop: 'text-decoration-line', value: underline.line, important })];
+    default: {
+      const unreachable: never = underline;
+      return unreachable;
+    }
+  }
+};
+
 /** The variable the neighbour rules set to shift each element's hatch tile. */
 export const HATCH_PICK = '--skh';
 
@@ -61,13 +85,14 @@ export type Look =
       readonly hatch?: HatchLook;
       /** An exact hatch (M6c) is in the drawing: a repeated hatch from another rule must not show under it. */
       readonly exact?: boolean;
+      readonly underline?: UnderlineLook;
     }
   /** The original border, shown as CSS would (`border-image: none` and its colours). */
-  | { readonly kind: 'plain'; readonly colors: string; readonly background?: string; readonly hatch?: HatchLook }
+  | { readonly kind: 'plain'; readonly colors: string; readonly background?: string; readonly hatch?: HatchLook; readonly underline?: UnderlineLook }
   /** No border at all here (`border-image: none`; the colour stays transparent). */
   | { readonly kind: 'none' }
-  /** Only the background: a hatch or a restored colour; the border is left as it is. */
-  | { readonly kind: 'paint'; readonly background?: string; readonly hatch?: HatchLook };
+  /** Only the background (a hatch, a restored colour) or the text decoration; the border is left as it is. */
+  | { readonly kind: 'paint'; readonly background?: string; readonly hatch?: HatchLook; readonly underline?: UnderlineLook };
 
 /**
  * The hatch as a background (spec "채움": unknown size). Only paint properties: the layout stays.
@@ -105,17 +130,19 @@ const lookDecls = (look: Look, important: boolean, hideColor: boolean): Readonly
         ...(look.exact ? [postcss.decl({ prop: 'background-image', value: 'none', important })] : []),
         ...hatchDecls(look.hatch, important, hideColor),
         ...imageDecls(look.image, important),
+        ...underlineDecls(look.underline, important),
       ];
     case 'plain':
       return [
         postcss.decl({ prop: 'border-image', value: 'none', important }),
         postcss.decl({ prop: 'border-color', value: look.colors, important }),
         ...(look.hatch ? hatchDecls(look.hatch, important, true) : backgroundDecl(look.background, important)),
+        ...underlineDecls(look.underline, important),
       ];
     case 'none':
       return [postcss.decl({ prop: 'border-image', value: 'none', important })];
     case 'paint':
-      return look.hatch ? hatchDecls(look.hatch, important, hideColor) : backgroundDecl(look.background, important);
+      return [...(look.hatch ? hatchDecls(look.hatch, important, hideColor) : backgroundDecl(look.background, important)), ...underlineDecls(look.underline, important)];
     default: {
       const unreachable: never = look;
       return unreachable;

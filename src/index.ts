@@ -1,6 +1,6 @@
 import type { Plugin, PluginCreator, Result, Root } from 'postcss';
 import { drawingName } from './draw/hash';
-import { drawNineSlice, drawStrip, geometryFor, nineSlicePlacement, stripGeometry } from './draw/stroke';
+import { drawNineSlice, drawStrip, geometryFor, nineSlicePlacement, stripGeometry, underlinePlacement } from './draw/stroke';
 import { FLIPS, type Flip } from './draw/svg';
 import { type BorderImage, type HatchLook, type Look, createInserter, emitInline, removeControl } from './emit/emit';
 import { drawHatchTile } from './draw/hatch';
@@ -45,13 +45,43 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
     const emissions = gather(facts.value, scopeOf(variableDefs(root)), resolved.value);
     report(root, result, [...facts.diagnostics, ...emissions.diagnostics]);
 
+    const drawingUrl = (request: DrawRequest, flip: Flip): string => {
+      switch (request.kind) {
+        case 'nine-slice':
+          return drawNineSlice(request, flip).url;
+        case 'strip':
+          return drawStrip(request, flip).url;
+        case 'underline':
+          // The one-sided line's drawing, at the bottom (M6d).
+          return drawStrip({ side: 'bottom', width: request.width, color: request.color, rough: request.rough, seed: request.seed }, flip).url;
+        default: {
+          const unreachable: never = request;
+          return unreachable;
+        }
+      }
+    };
+    const placementOf = (request: DrawRequest) => {
+      switch (request.kind) {
+        case 'nine-slice':
+          return nineSlicePlacement(geometryFor(request), request.fill !== undefined);
+        case 'strip':
+          return stripGeometry(request.width, request.side).placement;
+        case 'underline':
+          return underlinePlacement(request.width);
+        default: {
+          const unreachable: never = request;
+          return unreachable;
+        }
+      }
+    };
+
     // Each drawing is made once per file and stored once, under a name taken from its content.
     const drawings = new Map<string, string>();
     const draw = (request: DrawRequest, flip: Flip): string => {
       const key = JSON.stringify([request, flip]);
       const cached = drawings.get(key);
       if (cached) return cached;
-      const drawing = request.kind === 'nine-slice' ? drawNineSlice(request, flip).url : drawStrip(request, flip).url;
+      const drawing = drawingUrl(request, flip);
       drawings.set(key, drawing);
       return drawing;
     };
@@ -67,10 +97,7 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
     };
 
     const imageFor = (request: DrawRequest, mix: boolean): BorderImage => {
-      const placement =
-        request.kind === 'nine-slice'
-          ? nineSlicePlacement(geometryFor(request), request.fill !== undefined)
-          : stripGeometry(request.width, request.side).placement;
+      const placement = placementOf(request);
       if (!mix) return { kind: 'fixed', placement, drawing: nameOf(draw(request, 'none')) };
       const slots = SEEDS.flatMap((seed, s) =>
         FLIPS.map((flip, f) => ({ seed: s, flip: f, drawing: nameOf(draw({ ...request, seed }, flip)) })),
@@ -79,6 +106,8 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
     };
 
     const filled = (request: DrawRequest): boolean => request.kind === 'nine-slice' && request.fill !== undefined;
+    // A drawn underline (M6d) turns the browser's off.
+    const hideOf = (request: DrawRequest) => (request.kind === 'underline' ? { underline: { kind: 'hide' as const } } : {});
     const exactOf = (request: DrawRequest) => (request.kind === 'nine-slice' && request.fill?.kind === 'hatch' ? { exact: true } : {});
     const hatch = hatchOf(resolved.value);
     const tileFor = (color: string | undefined): HatchLook => {
@@ -89,11 +118,12 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
     const extras = (outcome: Emission['outcome']) => ({
       ...(outcome.background === undefined ? {} : { background: outcome.background }),
       ...(outcome.hatch ? { hatch: tileFor(outcome.hatch.color) } : {}),
+      ...(outcome.underline ? { underline: outcome.underline } : {}),
     });
     const lookOf = (outcome: Emission['outcome'], mix: boolean): Look => {
       switch (outcome.kind) {
         case 'draw':
-          return { kind: 'image', image: imageFor(outcome.request, mix), filled: filled(outcome.request), ...exactOf(outcome.request), ...extras(outcome) };
+          return { kind: 'image', image: imageFor(outcome.request, mix), filled: filled(outcome.request), ...exactOf(outcome.request), ...extras(outcome), ...hideOf(outcome.request) };
         case 'plain':
           return { kind: 'plain', colors: outcome.colors, ...extras(outcome) };
         case 'paint':
@@ -105,7 +135,11 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
       }
     };
     const paints = (outcome: Emission['outcome']): boolean =>
-      outcome.background !== undefined || outcome.hatch !== undefined || (outcome.kind === 'draw' && filled(outcome.request));
+      outcome.background !== undefined ||
+      outcome.hatch !== undefined ||
+      outcome.underline !== undefined ||
+      (outcome.kind === 'draw' && outcome.request.kind === 'underline') ||
+      (outcome.kind === 'draw' && filled(outcome.request));
     const insert = createInserter();
     emissions.value.forEach((emission) => {
       const { facts: rule, outcome, important, mix } = emission;
@@ -119,7 +153,7 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
       if (outcome.kind === 'draw') {
         outcome.variants.forEach((variant) => {
           const look: Look = variant.request
-            ? { kind: 'image', image: imageFor(variant.request, mix), filled: filled(variant.request), ...exactOf(variant.request) }
+            ? { kind: 'image', image: imageFor(variant.request, mix), filled: filled(variant.request), ...exactOf(variant.request), ...hideOf(variant.request) }
             : { kind: 'none' };
           insert(rule.rule, [...emission.conditions, ...variant.conditions], emission.selector, look, important, false);
         });

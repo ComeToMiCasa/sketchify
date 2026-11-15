@@ -65,8 +65,8 @@ const enter = async (p: Page, page: TestPage, css: string, state: State): Promis
  * WebKit computes a native (`appearance: auto`) select's radius as 5px whatever the CSS says,
  * so its computed border is not the cascade's result. Form controls are M7.
  */
-const computedBorders = (p: Page, sizes: boolean): Promise<ReadonlyArray<Border>> =>
-  p.evaluate((sizes) =>
+const computedBorders = (p: Page, sizes: boolean, underlines: boolean): Promise<ReadonlyArray<Border>> =>
+  p.evaluate(([sizes, underlines]) =>
     Array.from(document.querySelectorAll<HTMLElement>('body *:not(select)')).flatMap((el) => {
       const s = getComputedStyle(el);
       const sides = ['top', 'right', 'bottom', 'left'].map((side) => ({
@@ -78,7 +78,14 @@ const computedBorders = (p: Page, sizes: boolean): Promise<ReadonlyArray<Border>
       const fillMode = s.getPropertyValue('--sketch-fill').trim();
       const fill = (fillMode === 'rough' || fillMode === 'marker' || fillMode === 'hatch') && s.backgroundColor !== 'rgba(0, 0, 0, 0)' && s.backgroundImage === 'none';
       const hasBorder = sides.some((side) => side.width > 0 && side.style !== 'none' && side.style !== 'hidden');
-      if (!hasBorder && !fill) return [];
+      // Underlines (M6d): the computed decoration, colour and display. Elements marked
+      // `data-oracle-native` keep the browser's underline on purpose (an inherited colour, a class
+      // without an inline type): their computed style cannot tell the compiler's reason.
+      const underline = underlines && s.textDecorationLine === 'underline' && !el.hasAttribute('data-oracle-native');
+      if (!hasBorder && !fill && !underline) return [];
+      const text = underline
+        ? ` display: ${s.display} !important; color: ${s.color} !important; text-decoration: underline ${s.textDecorationStyle} ${s.textDecorationColor} !important;`
+        : '';
       const r = el.getBoundingClientRect();
       // Pages whose hatched elements have a known size (M6c): the size the compiler should have worked out.
       const size = sizes && fillMode === 'hatch' ? ` --sketch-size: ${r.width} ${r.height} !important;` : '';
@@ -90,12 +97,12 @@ const computedBorders = (p: Page, sizes: boolean): Promise<ReadonlyArray<Border>
           ix: Number(el.getAttribute('data-ix')),
           rect: { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height },
           width: Math.max(...sides.map((side) => side.width)),
-          css: `[data-ix="${el.getAttribute('data-ix')}"] { ${decls} border-radius: ${radius} !important;${paint} }`,
-          fill,
+          css: `[data-ix="${el.getAttribute('data-ix')}"] { ${decls} border-radius: ${radius} !important;${paint}${text} }`,
+          fill: fill || underline,
         },
       ];
     }),
-  sizes);
+  [sizes, underlines] as const);
 
 const REACH = 8;
 const isInk = (px: readonly number[]): boolean => Math.min(...px) < 235 || Math.max(...px) - Math.min(...px) > 30;
@@ -131,7 +138,7 @@ const SAME = 0.02;
 /** Per element: how far the transformed CSS is from the drawing of its computed border. */
 const compare = async (p: Page, page: TestPage, state: State, edit: (css: string) => string = (css) => css): Promise<ReadonlyArray<readonly [string, number]>> => {
   await enter(p, page, FILL_PER_RULE + page.css, state);
-  const borders = await computedBorders(p, KNOWN_SIZES.has(page.name));
+  const borders = await computedBorders(p, KNOWN_SIZES.has(page.name), page.name === 'underline');
   const flattened = `${page.css}\n${borders.map((b) => b.css).join('\n')}\n`;
 
   await enter(p, page, edit(await transform(page.css, {}, page.cssPath)), state);
@@ -166,6 +173,11 @@ const INTERACTIONS: Readonly<Record<string, ReadonlyArray<State>>> = {
     { name: 'hover #btn-flat, dark', width: 800, scheme: 'dark', hover: 'btn-flat' },
   ],
   hatch: [{ name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' }],
+  underline: [
+    { name: 'hover #short1', width: 800, scheme: 'light', hover: 'short1' },
+    { name: 'hover #quiet', width: 800, scheme: 'light', hover: 'quiet' },
+    { name: 'hover #badge, dark', width: 800, scheme: 'dark', hover: 'badge' },
+  ],
   'exact-hatch': [
     { name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' },
     { name: 'hover #wide, dark', width: 800, scheme: 'dark', hover: 'wide' },
@@ -177,7 +189,7 @@ const INTERACTIONS: Readonly<Record<string, ReadonlyArray<State>>> = {
 /** Pages whose CSS gives the hatched elements' sizes, so the compiler draws exact hatches (M6c). */
 const KNOWN_SIZES: ReadonlySet<string> = new Set(['exact-hatch']);
 
-for (const name of ['design-system', 'boxes', 'forms', 'fills', 'hatch', 'exact-hatch']) {
+for (const name of ['design-system', 'boxes', 'forms', 'fills', 'hatch', 'exact-hatch', 'underline']) {
   test.describe(`M4 draws what the original CSS shows: ${name}`, () => {
     const page = loadPage(name);
     for (const state of [...STATES, ...(INTERACTIONS[name] ?? [])]) {
@@ -234,4 +246,11 @@ test('the oracle compares exact hatches too: a wrong size hint differs (control)
   const results = await compare(p, wrong, { name: 'plain', width: 800, scheme: 'light' });
   expect(results.find(([label]) => label === '#hinted')?.[1]).toBeGreaterThan(SAME);
   expect(results.find(([label]) => label === '#card1')?.[1]).toBeLessThan(SAME);
+});
+
+test('the oracle compares underlines too: the browser underline differs from a drawn one (control)', async ({ page: p }) => {
+  const underline = loadPage('underline');
+  const results = await compare(p, underline, { name: 'plain', width: 800, scheme: 'light' }, () => underline.css);
+  expect(results.find(([label]) => label === '#long')?.[1]).toBeGreaterThan(SAME);
+  expect(results.find(([label]) => label === '#short1')?.[1]).toBeGreaterThan(SAME);
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { HATCH_DEFAULTS, HATCH_PRESETS, PRESETS } from '../../src/options';
 import { drawExactHatch, drawHatchTile, exactHatchReach, hatchTileSize } from '../../src/draw/hatch';
-import { drawNineSlice, drawStrip, geometryFor, nineSliceGeometry, stripGeometry } from '../../src/draw/stroke';
+import { drawNineSlice, drawStrip, geometryFor, nineSliceGeometry, stripGeometry, underlinePlacement } from '../../src/draw/stroke';
 import { FLIPS } from '../../src/draw/svg';
 import { dataUri, round1, tidyPath } from '../../src/draw/svg';
 
@@ -277,5 +277,17 @@ describe('exact hatch (M6c)', () => {
     const svg = drawNineSlice({ ...card, width: 0, color: 'transparent', seed: 11 }).svg;
     expect(svg).not.toContain('<use');
     expect(svg).toContain("fill='#3b82f6'");
+  });
+});
+
+describe('underline (M6d)', () => {
+  it('uses the one-sided line placement, with its line half a width below the element', () => {
+    const line = stripGeometry(2, 'bottom').placement;
+    const under = underlinePlacement(2);
+    expect(under.slice).toBe(line.slice);
+    expect(under.width).toBe(line.width);
+    // Bottom slice 12px deep with the line in its middle: 6px + 1px puts the centre 1px below.
+    expect(under.outset).toBe('12px 3px 7px 3px');
+    expect(underlinePlacement(1.5).outset).toBe('11.5px 3px 6.5px 3px');
   });
 });

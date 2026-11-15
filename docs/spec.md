@@ -30,7 +30,7 @@ MVP의 입력은 순수 CSS이고, Tailwind는 다음 단계에서 지원한다.
 | `border-top` 등 한 변, `hr` | 양 끝을 고정한 손그림 선 |
 | `border-radius` | 테두리 모양과 모서리 조각 크기에 반영 |
 | `background-color` | 채움 4종 중 하나 |
-| 밑줄(`text-decoration`) | 줄마다 가로로 늘인 손그림 선 (M6 다음 단계) |
+| 밑줄(`text-decoration`) | 인라인 요소의 밑줄을 한 변 선과 같은 손그림 선으로 (M6d) |
 | 인풋, 텍스트박스, select | 요소 자체에 테두리, 색 고정 |
 | 체크박스, 라디오 | 박스·원과 체크·점을 배경으로, 색 고정 |
 
@@ -109,8 +109,23 @@ Rough.js로 작은 사각형을 한 번 그려 9-slice 원본으로 쓰고, 요�
   - 아래 outset은 선 가운데를 원래 테두리 가운데에 맞춘다.
   - 위(그림 없는 반대쪽) outset H는 얇은 요소에서 그림이 줄어들지 않게 영역을 넓힌다.
   - 다른 변도 같은 방식이다. 이웃 변형(seed 3 × 뒤집기 4)과 조합 규칙(예: `.list li:hover { border-bottom-color }`)은 테두리와 같다.
-- **밑줄**: 여러 줄로 감기는 텍스트를 따라가야 해서 배경으로 그린다. 줄 조각마다 가로로 늘이고(`box-decoration-break: clone`), 색은 SVG에 고정한다.
-  - `text-decoration` 밑줄은 M6(채움) 다음인 M6d로 미뤘다(M5에서 사용자 결정). 배경 겹치기, `background` 단축 속성이 그림을 지우는 문제, 색(대개 생략된 `currentColor`)을 채움과 함께 풀어야 하기 때문이다.
+- **밑줄** (M6d, 2026-11-15): `text-decoration` 밑줄을 한 변 선과 같은 그림으로 바꾼다. 처음에는 배경으로 그리기로 했으나(명세 초안, 시안), 구현해 보니 배경은 글자 상자 안이라 선이 움직일 세로 폭이 기준선 아래 3px 남짓이었다. 그래서 흔들림을 키우면 글자(특히 한글 받침)를 가로지르고, 줄이면 거의 곧게 보였다. 사용자 결정으로 `border-image`로 바꿨다.
+  - **방식**: 실제 테두리 없이 `border-image`만 준다. 너비와 outset을 px로 주므로 테두리가 없어도 그려지고(Chromium·Safari 확인) 레이아웃은 그대로다. 그림은 한 변 선(`border-bottom`)과 같고, 선 가운데가 글자 상자 바닥에서 선 두께의 반만큼 아래에 온다.
+    - `text-decoration-line: none; border-color: transparent; border-image: <그림> 0 16 H 16 / 0 16px Hpx 16px / Hpx 3px (H/2 + W/2)px 3px stretch` (H = W + 10).
+    - 여러 줄로 감긴 인라인 요소는 줄 조각마다 양 끝이 있는 선이 그려진다. 이웃 변형(seed 3 × 뒤집기 4), hover 색, 다크 모드 조건 덮어쓰기는 테두리와 같다.
+    - 두께는 px `text-decoration-thickness`, 없으면 1.5px. `text-underline-offset`은 반영하지 않는다.
+    - 그리기 영역이 글자 상자 밖이라, 부모의 `overflow: hidden`이 아래쪽을 자를 수 있다(한 변 선과 같은 경고 대상, M8).
+  - **대상** (사용자 결정): 인라인 요소만 그린다.
+    - 셀렉터 대상의 타입이 기본 인라인 요소(`a`, `abbr`, `b`, `cite`, `code`, `dfn`, `em`, `i`, `ins`, `kbd`, `label`, `mark`, `q`, `s`, `samp`, `small`, `span`, `strong`, `sub`, `sup`, `time`, `u`, `var`)이거나, 캐스케이드 결과가 `display: inline`이어야 한다.
+    - 그 밖의 display나 클래스만 있는 셀렉터(`.link`)는 원래 밑줄로 둔다. 블록에 그리면 박스 맨 아래에 한 줄만 생기기 때문이다.
+    - 선이 `underline` 하나이고 스타일이 solid(또는 생략)일 때만 그린다. 두 줄, `line-through`, dotted·dashed·double·wavy는 원래대로 둔다.
+    - 같은 요소가 테두리 그림(테두리, 채움)이나 자기 `border-image`를 쓰면 원래 밑줄로 둔다(그림 자리가 하나). 배경 이미지·반복 빗금과는 함께 쓸 수 있다.
+    - 브라우저 기본 스타일(`a`의 기본 밑줄)은 읽지 않는다. 밑줄을 CSS에 쓴 규칙만 그린다. 기본 스타일은 `@sketchify base`(M7)에서 다룬다.
+  - **색** (사용자 결정): `text-decoration-color`, 없거나 currentColor면 캐스케이드의 `color`. 둘 다 빌드 때 알 수 없으면 원래 밑줄로 둔다. 오류는 내지 않는다(M8 경고 후보). 조건(다크 모드)에서 색을 알 수 없게 되면 테두리처럼 컴파일 오류다.
+  - **캐스케이드(M4)**: 밑줄을 쓴 규칙도 묶음의 부모다. `text-decoration*`·`color`·`display`를 바꾸는 규칙이 구성원이 된다.
+    - hover로 색이 바뀌면 그 색의 그림, `text-decoration: none`이면 그림을 지운다(`border-image: none`).
+    - 그릴 수 없게 된 요소(물려받은 색, dotted, 자기 테두리)에는 그림을 지우고 `text-decoration-line: underline`으로 브라우저 밑줄을 되살린다. 밑줄이 아닌 선(`line-through`)이나 none이면 그 값을 다시 쓴다.
+    - 밑줄만 있는 묶음이 구성원 16개를 넘으면 오류 대신 원래 밑줄로 둔다(`a` 규칙은 `… a` 규칙을 많이 모은다).
 
 ## 채움
 

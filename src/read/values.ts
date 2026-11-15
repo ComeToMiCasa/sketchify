@@ -194,6 +194,70 @@ export const parseBackgroundShorthand = (value: string): Background => {
 /** `background-image`: anything but `none` paints an image. */
 export const paintsImage = (value: string): boolean => value.trim().toLowerCase() !== 'none';
 
+// --- Underlines (M6d) ---------------------------------------------------------------
+
+/** `text-decoration-line`: the lines (`none` is no line), or anything unknown (`var()`, global keywords). */
+export type DecorationLine = { readonly kind: 'lines'; readonly lines: ReadonlyArray<string> } | { readonly kind: 'unknown' };
+
+/** The parts of `text-decoration` that decide the underline. Omitted parts take their initial values. */
+export type Decoration = {
+  readonly line: DecorationLine;
+  readonly style: Style;
+  readonly color: Color;
+  /** px, or undefined for `auto`, `from-font` and other units. */
+  readonly thickness: number | undefined;
+};
+
+const DECORATION_LINES: ReadonlySet<string> = new Set(['none', 'underline', 'overline', 'line-through', 'blink', 'spelling-error', 'grammar-error']);
+const DECORATION_STYLES: ReadonlySet<string> = new Set(['solid', 'double', 'dotted', 'dashed', 'wavy']);
+
+export const parseDecorationLine = (value: string): DecorationLine => {
+  if (hasVar(value) || isGlobal(value)) return UNKNOWN;
+  const words = (splitValue(value) ?? []).map((node) => valueParser.stringify(node).toLowerCase());
+  if (words.length === 0 || !words.every((word) => DECORATION_LINES.has(word))) return UNKNOWN;
+  return { kind: 'lines', lines: words.filter((word) => word !== 'none') };
+};
+
+export const parseDecorationStyle = (value: string): Style => {
+  const lower = value.trim().toLowerCase();
+  return DECORATION_STYLES.has(lower) ? { kind: 'keyword', keyword: lower } : UNKNOWN;
+};
+
+export const parseDecorationThickness = (value: string): number | undefined => {
+  if (hasVar(value) || isGlobal(value)) return undefined;
+  const px = lengthPx(value.trim().toLowerCase());
+  return px !== undefined && px > 0 ? px : undefined;
+};
+
+/** The `text-decoration` shorthand: lines, style, colour and thickness in any order. */
+export const parseTextDecoration = (value: string): Decoration => {
+  const unknown: Decoration = { line: UNKNOWN, style: UNKNOWN, color: { kind: 'unknown', css: value }, thickness: undefined };
+  if (hasVar(value) || isGlobal(value)) return unknown;
+  const nodes = splitValue(value);
+  if (!nodes || nodes.length === 0) return unknown;
+  const initial: Decoration = { line: { kind: 'lines', lines: [] }, style: { kind: 'keyword', keyword: 'solid' }, color: { kind: 'unknown', css: 'currentcolor' }, thickness: undefined };
+  return nodes.reduce<Decoration>((parts, node) => {
+    const lower = valueParser.stringify(node).toLowerCase();
+    if (node.type === 'word' && DECORATION_LINES.has(lower)) {
+      const lines = parts.line.kind === 'lines' ? parts.line.lines : [];
+      return { ...parts, line: { kind: 'lines', lines: lower === 'none' ? lines : [...lines, lower] } };
+    }
+    if (node.type === 'word' && DECORATION_STYLES.has(lower)) return { ...parts, style: { kind: 'keyword', keyword: lower } };
+    if (node.type === 'word' && (lower === 'auto' || lower === 'from-font')) return { ...parts, thickness: undefined };
+    if (node.type === 'word' && isLength(lower)) return { ...parts, thickness: parseDecorationThickness(lower) };
+    return { ...parts, color: nodeColor(node) };
+  }, initial);
+};
+
+/** A `display` keyword, lower-cased (`inline`, `block`, `inline flex`), or unknown. */
+export type Display = { readonly kind: 'keyword'; readonly keyword: string } | { readonly kind: 'unknown' };
+
+export const parseDisplay = (value: string): Display => {
+  if (hasVar(value) || isGlobal(value)) return UNKNOWN;
+  const words = (splitValue(value) ?? []).map((node) => valueParser.stringify(node).toLowerCase());
+  return words.length === 0 ? UNKNOWN : { kind: 'keyword', keyword: words.join(' ') };
+};
+
 // --- Sizes (M6c exact hatch) -------------------------------------------------------
 
 /** A `width`, `height` or `padding` value: px, or anything else (`auto`, `%`, `em`, `calc()`). */

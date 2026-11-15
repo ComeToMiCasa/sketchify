@@ -11,7 +11,7 @@ export type NineSliceRequest = NineSliceInput & { readonly kind: 'nine-slice' };
 /** A one-sided line (spec "한 변 border, hr, 밑줄"). */
 export type StripRequest = StripInput & { readonly kind: 'strip' };
 
-export type DrawRequest = NineSliceRequest | StripRequest;
+export type DrawRequest = NineSliceRequest | StripRequest | UnderlineRequest;
 
 /** A drawing for a condition (`@media`, `@supports`) whose variable values change the border. */
 export type ConditionVariant = {
@@ -264,3 +264,37 @@ export const colorsOf = (border: BorderState): string => {
   });
   return allSame(css, String) ?? css.join(' ');
 };
+
+// --- Underlines (M6d) ------------------------------------------------------------------
+
+/** A hand-drawn underline: the one-sided line's drawing at the bottom, on an element without a border. */
+export type UnderlineRequest = { readonly kind: 'underline'; readonly width: number; readonly color: string; readonly rough: ResolvedOptions['rough']; readonly seed: number };
+
+/** Line width without a px `text-decoration-thickness`. */
+export const UNDERLINE_WIDTH = 1.5;
+
+/** The state asks for an underline: `text-decoration` (or `-line`) is exactly `underline`. */
+export const asksForUnderline = (border: BorderState): boolean =>
+  border.text.line.kind === 'lines' && border.text.line.lines.length === 1 && border.text.line.lines[0] === 'underline';
+
+/**
+ * The underline drawn with `border-image` (spec "한 변 border, hr, 밑줄"): one solid underline on
+ * an inline element (by its type, or `display: inline`) without a border of its own (the drawing
+ * takes the border image), in a colour known at build time (`text-decoration-color`, else
+ * `color`). Anything else keeps the browser's underline.
+ */
+export const underlineRequestFor = (border: BorderState, inlineByType: boolean, options: ResolvedOptions): UnderlineRequest | undefined => {
+  if (!asksForUnderline(border) || border.unsupported || border.hasBorderImage) return undefined;
+  const { style, display, decorationColor, color, thickness } = border.text;
+  if (style.kind !== 'unset' && !(style.kind === 'keyword' && style.keyword === 'solid')) return undefined;
+  const inline = display.kind === 'unset' ? inlineByType : display.kind === 'keyword' && display.keyword === 'inline';
+  if (!inline || !SIDES.every((side) => sideLine(border, side).kind === 'none')) return undefined;
+  const own = decorationColor.kind === 'unset' || (decorationColor.kind === 'unknown' && isCurrentColor(decorationColor)) ? color : decorationColor;
+  return own.kind === 'literal'
+    ? { kind: 'underline', width: thickness ?? UNDERLINE_WIDTH, color: own.css, rough: options.rough, seed: SEEDS[0] }
+    : undefined;
+};
+
+/** The drawing for an element: its border (and fill), or else its underline (M6d). */
+export const drawingFor = (border: BorderState, options: ResolvedOptions, inlineByType: boolean): DrawRequest | undefined =>
+  paintRequestFor(border, options) ?? underlineRequestFor(border, inlineByType, options);

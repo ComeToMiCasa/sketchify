@@ -6,13 +6,25 @@
 // through the CSS cascade (importance, specificity, source order); the result is the drawing.
 import type { Declaration } from 'postcss';
 import type { ResolvedOptions } from '../options';
-import { type BorderState, type RuleFacts, borderOf, isBackgroundProp, isBorderProp, isSizeProp, paintsFill } from '../read/collect';
+import { type BorderState, type RuleFacts, borderOf, isBackgroundProp, isBorderProp, isSizeProp, isUnderlineProp, paintsFill } from '../read/collect';
 import { type SelectorEntry, type Specificity, compareSpecificity, contains, unionEntries } from '../read/selectors';
 import { SIDES, usesVar } from '../read/values';
 import { type Condition, isSketchControl } from '../read/variables';
 import type { Diagnostic, Result } from '../report/diagnostics';
 import { type Scope, conditionUndrawableError, currentColorError, currentFillColorError, lookupFor, missingVarError, substitute } from './colors';
-import { type ConditionVariant, type DrawRequest, allTransparent, backgroundOf, blockedByCurrentColor, colorsOf, fillInCurrentColor, hatchFor, hatchInCurrentColor, paintRequestFor } from './request';
+import {
+  type ConditionVariant,
+  type DrawRequest,
+  allTransparent,
+  asksForUnderline,
+  backgroundOf,
+  blockedByCurrentColor,
+  colorsOf,
+  drawingFor,
+  fillInCurrentColor,
+  hatchFor,
+  hatchInCurrentColor,
+} from './request';
 
 /** One complex selector of one rule. A rule with a selector list gives one item per selector. */
 export type Item = {
@@ -118,15 +130,21 @@ export const asksForFill = (facts: RuleFacts): boolean => paintsFill(facts.borde
 /** The rule asks for a hatch (`--sketch-fill: hatch`). */
 const asksForHatch = (facts: RuleFacts): boolean => facts.border.fill.kind === 'mode' && facts.border.fill.mode === 'hatch';
 
+/** Some rule here asks for an underline (M6d), so the text colour, decoration and display matter. */
+const underlined = (applicable: ReadonlyArray<Item>): boolean => applicable.some((item) => asksForUnderline(item.facts.border));
+
 /** The element's border after the cascade, with `var()` resolved in one environment. */
 export const computeBorder = (applicable: ReadonlyArray<Item>, env: ReadonlyMap<string, string>): Computed => {
   const ordered = cascadeOrder(applicable);
+  // The text colour and decoration are read only where an underline is drawn: elsewhere their
+  // variables would count as read by the border (class-theme checks, condition variants).
+  const reads = underlined(applicable) ? (prop: string): boolean => isPaintProp(prop) || isUnderlineProp(prop) : isPaintProp;
   const custom = new Map(
     ordered.filter((w) => w.decl.prop.startsWith('--') && !isSketchControl(w.decl.prop)).map((w) => [w.decl.prop, w.decl.value.trim()] as const),
   );
   const lookup = lookupFor(custom, env);
   const steps = ordered
-    .filter((w) => isPaintProp(w.decl.prop))
+    .filter((w) => reads(w.decl.prop))
     .map((w) => {
       const plain = { prop: w.decl.prop, value: w.decl.value, important: w.important };
       if (!usesVar(w.decl.value)) return { decl: plain, diagnostics: [], read: undefined };
@@ -155,6 +173,24 @@ export type HatchOutcome = {
   readonly variants: ReadonlyArray<{ readonly conditions: ReadonlyArray<Condition>; readonly color: string | undefined }>;
 };
 
+/**
+ * The browser underline where a drawn one (M6d) reaches the element but does not show there:
+ * `off` when the element has no underline (a hover that turns it off) and writes back its own
+ * `text-decoration-line`; `native` when it has one that cannot be drawn (an inherited colour,
+ * dotted, a border of its own), so the browser's underline comes back.
+ */
+export type UnderlineOutcome =
+  /** `line`: the element's own `text-decoration-line` to write back (`none`, `line-through`), if known. */
+  | { readonly kind: 'off'; readonly line?: string }
+  | { readonly kind: 'native' };
+
+/** The state's `text-decoration-line` as CSS, if known (unset is `none`). */
+const lineOf = (border: BorderState): { readonly line?: string } => {
+  const line = border.text.line;
+  if (line.kind === 'unset') return { line: 'none' };
+  return line.kind === 'lines' ? { line: line.lines.join(' ') || 'none' } : {};
+};
+
 /** What the element should look like. */
 export type Outcome =
   /**
@@ -168,11 +204,12 @@ export type Outcome =
       readonly variants: ReadonlyArray<ConditionVariant>;
       readonly background?: string;
       readonly hatch?: HatchOutcome;
+      readonly underline?: UnderlineOutcome;
     }
   /** A border the drawing cannot express (dashed, none, mixed colours): shown as the original CSS would. */
-  | { readonly kind: 'plain'; readonly colors: string; readonly background?: string; readonly hatch?: HatchOutcome }
-  /** Nothing to do for the border (no drawing reaches the element); only its background (hatch). */
-  | { readonly kind: 'paint'; readonly background?: string; readonly hatch?: HatchOutcome }
+  | { readonly kind: 'plain'; readonly colors: string; readonly background?: string; readonly hatch?: HatchOutcome; readonly underline?: UnderlineOutcome }
+  /** Nothing to do for the border (no drawing reaches the element); only its background (hatch, underline). */
+  | { readonly kind: 'paint'; readonly background?: string; readonly hatch?: HatchOutcome; readonly underline?: UnderlineOutcome }
   /** Left alone: the rules use `border-image` themselves or logical properties. */
   | { readonly kind: 'leave' };
 
@@ -190,6 +227,7 @@ export const evaluate = (
   scope: Scope,
   options: ResolvedOptions,
   anchor: Declaration | undefined,
+  inlineByType = false,
 ): Result<Evaluated> => {
   const base = computeBorder(applicable, scope.base);
   const leave = { outcome: { kind: 'leave' } as const, important: base.important, reads: base.reads };
@@ -197,7 +235,7 @@ export const evaluate = (
   if (base.border.hasBorderImage || base.border.unsupported) return { value: leave, diagnostics: [] };
 
   if (hatchInCurrentColor(base.border)) return { value: leave, diagnostics: [currentFillColorError(anchor)] };
-  const request = paintRequestFor(base.border, options);
+  const request = drawingFor(base.border, options, inlineByType);
   const hatch = hatchFor(base.border, options);
   // A rule here draws a fill and hides its background; if this element gets none, show it again.
   const filled = (request?.kind === 'nine-slice' && request.fill !== undefined) || hatch !== undefined;
@@ -215,20 +253,24 @@ export const evaluate = (
         },
       }
     : {};
+  const underlinePart =
+    request?.kind !== 'underline' && underlined(applicable)
+      ? { underline: asksForUnderline(base.border) ? { kind: 'native' as const } : { kind: 'off' as const, ...lineOf(base.border) } }
+      : {};
   if (!request) {
     if (blockedByCurrentColor(base.border, options)) {
       const error = fillInCurrentColor(base.border) ? currentFillColorError(anchor) : currentColorError(anchor);
       return { value: leave, diagnostics: [error] };
     }
     return {
-      value: { outcome: { kind: 'plain', colors: colorsOf(base.border), ...background, ...hatchPart }, important: base.important, reads: base.reads },
+      value: { outcome: { kind: 'plain', colors: colorsOf(base.border), ...background, ...hatchPart, ...underlinePart }, important: base.important, reads: base.reads },
       diagnostics: [],
     };
   }
 
   const outcomes = conditional.map(({ conditions, computed }): Result<ReadonlyArray<ConditionVariant>> => {
     if (computed.diagnostics.length > 0) return { value: [], diagnostics: computed.diagnostics };
-    const variant = paintRequestFor(computed.border, options);
+    const variant = drawingFor(computed.border, options, inlineByType);
     // An exact hatch must stay one under the condition: the repeated one would not be written there.
     if (variant && exact(request) !== exact(variant)) return { value: [], diagnostics: [conditionUndrawableError(anchor, conditions)] };
     if (variant) return { value: JSON.stringify(variant) === JSON.stringify(request) ? [] : [{ conditions, request: variant }], diagnostics: [] };
@@ -240,7 +282,7 @@ export const evaluate = (
   const reads = [...base.reads, ...conditional.flatMap((c) => c.computed.reads)];
   if (diagnostics.length > 0) return { value: { ...leave, reads }, diagnostics };
   return {
-    value: { outcome: { kind: 'draw', request, variants: outcomes.flatMap((o) => o.value), ...background, ...hatchPart }, important: base.important, reads },
+    value: { outcome: { kind: 'draw', request, variants: outcomes.flatMap((o) => o.value), ...background, ...hatchPart, ...underlinePart }, important: base.important, reads },
     diagnostics: [],
   };
 };
@@ -268,7 +310,8 @@ export const parentsOf = (item: Item, complete: ReadonlyArray<Item>): ReadonlyAr
  * base's and that change the border: border declarations, or variables the border reads.
  */
 export const familiesOf = (items: ReadonlyArray<Item>, scope: Scope): ReadonlyArray<Family> => {
-  const complete = items.filter((item) => isSelfContained(item.facts));
+  // A rule that asks for an underline (M6d) is a parent too, as long as its border is not half set.
+  const complete = items.filter((item) => isSelfContained(item.facts) || (!item.facts.partial && asksForUnderline(item.facts.border)));
   const bases = complete.filter((item) => parentsOf(item, complete).length === 0);
   return bases.map((base) => {
     const around = items.filter((item) => item.facts !== base.facts && appliesTo(base, elementOfItem(item)));
@@ -276,8 +319,13 @@ export const familiesOf = (items: ReadonlyArray<Item>, scope: Scope): ReadonlyAr
     // where it draws a hatch, which is exact when the size is known (M6c).
     const fills = [base, ...around].some((item) => asksForFill(item.facts));
     const hatches = [base, ...around].some((item) => asksForHatch(item.facts));
+    // Underline families (M6d): the decoration, text colour and display.
+    const underlines = [base, ...around].some((item) => asksForUnderline(item.facts.border));
     const paints = (prop: string): boolean =>
-      isBorderProp(prop) || (fills && (isBackgroundProp(prop) || prop.toLowerCase() === '--sketch-fill')) || (hatches && isSizeProp(prop));
+      isBorderProp(prop) ||
+      (fills && (isBackgroundProp(prop) || prop.toLowerCase() === '--sketch-fill')) ||
+      (hatches && isSizeProp(prop)) ||
+      (underlines && isUnderlineProp(prop));
     const borderItems = [base, ...around.filter((item) => item.facts.decls.some((d) => paints(d.prop)))];
     // Variables the border reads, following variables inside variables (root values and members' own).
     const definitions = (name: string): ReadonlyArray<string> => [

@@ -27,9 +27,9 @@ const appliesTo = (candidate: Candidate, element: Element): boolean =>
 export const winner = (candidates: ReadonlyArray<Candidate>, element: Element): Candidate | undefined =>
   candidates.filter((c) => appliesTo(c, element)).reduce<Candidate | undefined>((best, c) => (!best || beats(c, best) ? c : best), undefined);
 
-/** The background part of an outcome or a look: its hatch and restored background colour. */
+/** The background part of an outcome or a look: its hatch, restored background colour and underline (M6d). */
 const paintKey = (look: Candidate['look'] | Outcome | undefined): string =>
-  !look || look.kind === 'reset' || look.kind === 'leave' ? '[null,null]' : JSON.stringify([look.hatch ?? null, look.background ?? null]);
+  !look || look.kind === 'reset' || look.kind === 'leave' ? '[null,null,null]' : JSON.stringify([look.hatch ?? null, look.background ?? null, look.underline ?? null]);
 
 /**
  * Whether the element needs its own rule: what it would show differs from what the original

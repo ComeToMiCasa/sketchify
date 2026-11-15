@@ -153,3 +153,21 @@ describe('sizes (M6c)', () => {
     }
   });
 });
+
+describe('text decoration (M6d)', () => {
+  it('reads the shorthand in any order, with initial values for what is left out', async () => {
+    const { parseTextDecoration } = await import('../../src/read/values');
+    expect(parseTextDecoration('underline')).toEqual({ line: { kind: 'lines', lines: ['underline'] }, style: { kind: 'keyword', keyword: 'solid' }, color: { kind: 'unknown', css: 'currentcolor' }, thickness: undefined });
+    expect(parseTextDecoration('red wavy underline 2px')).toMatchObject({ line: { lines: ['underline'] }, style: { keyword: 'wavy' }, color: { kind: 'literal', css: 'red' }, thickness: 2 });
+    expect(parseTextDecoration('none')).toMatchObject({ line: { kind: 'lines', lines: [] } });
+    expect(parseTextDecoration('var(--d)').line).toEqual({ kind: 'unknown' });
+  });
+
+  it('reads the longhands and display', async () => {
+    const { parseDecorationLine, parseDisplay } = await import('../../src/read/values');
+    expect(parseDecorationLine('underline overline')).toEqual({ kind: 'lines', lines: ['underline', 'overline'] });
+    expect(parseDecorationLine('squiggle')).toEqual({ kind: 'unknown' });
+    expect(parseDisplay('Inline')).toEqual({ kind: 'keyword', keyword: 'inline' });
+    expect(parseDisplay('inherit')).toEqual({ kind: 'unknown' });
+  });
+});

@@ -282,3 +282,20 @@ export const drawStrip = (input: StripInput, flip: Flip = 'none'): Strip => {
   const svg = svgDocument(svgWidth, svgHeight, body);
   return { ...geometry, svg, url: dataUri(svg) };
 };
+
+// --- Underlines (spec "한 변 border, hr, 밑줄", M6d) ------------------------------------
+// The one-sided line's drawing (drawStrip, side `bottom`) on an element without a border: the
+// `border-image` width and outset are given in px, so it needs no border and the layout stays.
+// The line sits just below the text box, like a `border-bottom` would, with room to wobble.
+
+/**
+ * Where an underline drawing goes: the bottom slice only, its line's centre half the line width
+ * below the element's bottom edge. The other outsets are the one-sided line's (ends reach the
+ * element's ends; the top keeps the image area deep enough not to shrink it).
+ */
+export const underlinePlacement = (width: number): ImagePlacement => {
+  const { placement } = stripGeometry(width, 'bottom');
+  const across = round1(width + 10);
+  const [top = '0px', right = '0px', , left = '0px'] = placement.outset.split(' ');
+  return { ...placement, outset: `${top} ${right} ${round1(across / 2 + width / 2)}px ${left}` };
+};

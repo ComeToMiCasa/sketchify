@@ -1,0 +1,25 @@
+/* M6d example: text-decoration underlines drawn as a border image without a border, just below the
+   text box like a one-sided line (spec "한 변 border, hr, 밑줄").
+   Link blue #2563eb (dark: amber #f59e0b), hover green #16a34a, danger red #dc2626. */
+:root { --link: #2563eb; }
+@media (prefers-color-scheme: dark) {
+  :root { --link: #f59e0b; }
+  body { background: #111827; color: #e5e7eb; }
+}
+
+body { margin: 0; font: 16px/1.7 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
+.page { width: 380px; margin: 0 auto; padding: 24px; display: grid; gap: 14px; }
+p { margin: 0; }
+
+/* Drawn: inline by type, solid underline, colour known. */
+a { color: var(--link); text-decoration: underline; }
+a:hover { color: #16a34a; }
+a.quiet:hover { text-decoration: none; }
+a.danger { color: #dc2626; }
+a.badge { background-color: #fef3c7; }
+
+/* Left to the browser: colour from the parent, a block, a dotted line, a class without a type. */
+.inherit a { color: inherit; }
+p.note { color: #1d2433; text-decoration: underline; }
+a.dotted { text-decoration: underline dotted; }
+.plain-link { color: #2563eb; text-decoration: underline; }

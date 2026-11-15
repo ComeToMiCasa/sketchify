@@ -99,6 +99,17 @@ export const contains = (outer: SelectorEntry, inner: SelectorEntry): boolean =>
 
 const typeOf = (entry: SelectorEntry): string | undefined => entry.compound.find((simple) => /^[a-z]/i.test(simple));
 
+/** Elements that are inline by default (spec "밑줄", M6d): an underline drawn as a background follows their lines. */
+const INLINE_ELEMENTS: ReadonlySet<string> = new Set([
+  'a', 'abbr', 'b', 'cite', 'code', 'dfn', 'em', 'i', 'ins', 'kbd', 'label', 'mark', 'q', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var',
+]);
+
+/** The selector's subject is an element that is inline by default (and not a pseudo-element). */
+export const isInlineByType = (entry: SelectorEntry): boolean => {
+  const type = typeOf(entry);
+  return entry.pseudoElement === '' && type !== undefined && INLINE_ELEMENTS.has(type);
+};
+
 export const selectorText = (entry: SelectorEntry): string => `${entry.context}${entry.compound.join('') || '*'}${entry.pseudoElement}`;
 
 /**
