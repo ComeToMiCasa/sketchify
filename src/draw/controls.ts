@@ -73,18 +73,32 @@ export const drawCheckbox = (input: ControlInput, flip: Flip = 'none'): { readon
   return { svg, url: dataUri(svg) };
 };
 
+/**
+ * Radio sizes on the canvas (M7b): the dot is small and calm, so it sits well inside the circle
+ * with white around it. A circle this small comes apart into loops at the border's roughness, so
+ * it gets under half of it (0.6 at `normal`) and at most 0.8 of overshoot: still two hand-drawn
+ * strokes, but one round ring (chosen from a side-by-side comparison).
+ */
+export const RADIO = { ring: BOX - OUTLINE - 3, dot: 6, ringRoughness: 0.46, ringOffset: 0.8, dotRoughness: 0.3 } as const;
+
 /** A radio: a rough circle in `ink`, and when checked a filled dot in `accent`. A flip mirrors the circle only. */
 export const drawRadio = (input: ControlInput, flip: Flip = 'none'): { readonly svg: string; readonly url: string } => {
-  const ring = generator.circle(BOX / 2, BOX / 2, BOX - OUTLINE - 3, options(input.ink, OUTLINE, calm(input.rough), input.seed));
+  const ringRough = {
+    ...input.rough,
+    roughness: input.rough.roughness * RADIO.ringRoughness,
+    maxRandomnessOffset: Math.min(input.rough.maxRandomnessOffset, RADIO.ringOffset),
+  };
+  const ring = generator.circle(BOX / 2, BOX / 2, RADIO.ring, options(input.ink, OUTLINE, ringRough, input.seed));
   const dot = input.checked
     ? generator
         .toPaths(
-          generator.circle(BOX / 2, BOX / 2, 7, {
+          generator.circle(BOX / 2, BOX / 2, RADIO.dot, {
             stroke: 'none',
             fill: input.accent,
             fillStyle: 'solid',
             seed: input.seed + 1,
-            roughness: input.rough.roughness * 0.6,
+            roughness: input.rough.roughness * RADIO.dotRoughness,
+            maxRandomnessOffset: 0.5,
           }),
         )
         .filter((path) => path.fill && path.fill !== 'none')
@@ -129,5 +143,19 @@ export const drawChoiceRing = (input: { readonly shape: 'box' | 'circle'; readon
   const o = options(input.color, 1.5, calm(input.rough), input.seed);
   const ring = input.shape === 'box' ? generator.rectangle(at, at, side, side, o) : generator.circle(size / 2, size / 2, side, o);
   const svg = svgDocument(size, size, stroked(ring, input.color, 1.5));
+  return { svg, url: dataUri(svg) };
+};
+
+/** The textarea resize grip's canvas (px of the SVG, scaled to the browser's grip). */
+export const RESIZER = 15;
+
+/** A textarea resize grip (M7b): two short rough diagonals in `ink`, in the bottom right corner. */
+export const drawResizer = (input: { readonly color: string; readonly rough: Rough; readonly seed: number }): { readonly svg: string; readonly url: string } => {
+  const r = { ...input.rough, roughness: input.rough.roughness * 0.5, maxRandomnessOffset: 0.6 };
+  const lines = [
+    generator.line(4, 13, 13, 4, options(input.color, 1.4, r, input.seed)),
+    generator.line(8.5, 13, 13, 8.5, options(input.color, 1.4, r, input.seed + 1)),
+  ];
+  const svg = svgDocument(RESIZER, RESIZER, lines.map((line) => stroked(line, input.color, 1.4)).join(''));
   return { svg, url: dataUri(svg) };
 };

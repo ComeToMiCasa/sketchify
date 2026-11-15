@@ -30,7 +30,7 @@ const count = (shot: Screenshot, rect: Rect, ink: Ink, inset = 0): number => {
   return Array.from({ length: w * h }, (_, i) => pixelAt(shot, rect.x + inset + (i % w), rect.y + inset + Math.floor(i / w))).filter(ink).length;
 };
 
-const IDS = ['text', 'email', 'memo', 'pick', 'check1', 'check2', 'radio1', 'radio2', 'rule', 'own'];
+const IDS = ['text', 'email', 'memo', 'pick', 'check1', 'check2', 'radio1', 'radio2', 'rule', 'own', 'btn', 'submit'];
 
 test.describe('M7a @sketchify base', () => {
   test('sizes stay close to the browser defaults (within 4px)', async ({ page: p }) => {
@@ -121,4 +121,64 @@ test.describe('M7a @sketchify base', () => {
     expect(count(shot, await rectOf(p, '#check1'), amber), 'amber tick').toBeGreaterThan(5);
     expect(count(shot, await rectOf(p, '#check1'), blue), 'no blue').toBe(0);
   });
+
+  test('links: accent text, a drawn underline below every line, the browser one off', async ({ page: p }) => {
+    const shot = await shoot(p, await transform(page.css, {}, page.cssPath));
+    const styles = await p.evaluate(() =>
+      Object.fromEntries(
+        ['link', 'link-long', 'link-plain', 'link-dotted'].map((id) => {
+          const s = getComputedStyle(document.getElementById(id) as HTMLElement);
+          return [id, [s.color, s.textDecorationLine, s.borderImageSource.slice(0, 4)]];
+        }),
+      ),
+    );
+    expect(styles['link']).toEqual(['rgb(37, 99, 235)', 'none', 'url(']);
+    expect(styles['link-plain']).toEqual(['rgb(37, 99, 235)', 'none', 'none']);
+    expect(styles['link-dotted']?.slice(1)).toEqual(['underline', 'none']);
+    const lines = await p.$eval('#link-long', (el) => Array.from(el.getClientRects()).map((r) => ({ x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height })));
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+    for (const rect of lines) {
+      const below = { x: rect.x + 2, y: rect.y + rect.height - 1, width: rect.width - 4, height: 4 };
+      const columns = Array.from({ length: Math.floor(below.width) }, (_, i) => Array.from({ length: 4 }, (_, j) => pixelAt(shot, below.x + i, below.y + j)).some(blue));
+      expect(columns.filter(Boolean).length / columns.length, 'underline below the line').toBeGreaterThan(0.85);
+    }
+  });
+
+  test('buttons: drawn border, a tint that darkens on hover, the focus ring', async ({ page: p }) => {
+    const shot = await shoot(p, await transform(page.css, {}, page.cssPath));
+    const btn = await rectOf(p, '#btn');
+    expect(count(shot, { x: btn.x - 2, y: btn.y - 2, width: btn.width + 4, height: 4 }, dark), 'border').toBeGreaterThan(10);
+    const tint = (s: Screenshot) => pixelAt(s, btn.x + 3, btn.y + btn.height / 2)[0];
+    const rest = tint(shot);
+    expect(rest).toBeLessThan(250);
+    await p.mouse.move(btn.x + btn.width / 2, btn.y + 2);
+    expect(tint(await screenshot(p)), 'darker on hover').toBeLessThan(rest);
+    await p.mouse.move(0, 0);
+    for (let i = 0; i < 20 && (await p.evaluate(() => document.activeElement?.id ?? '')) !== 'btn'; i += 1) await p.keyboard.press('Tab');
+    if ((await p.evaluate(() => document.activeElement?.id)) !== 'btn') await p.focus('#btn');
+    expect(await p.$eval('#btn', (el) => getComputedStyle(el).outlineStyle)).toBe('none');
+    expect(count(await screenshot(p), { x: btn.x + 4, y: btn.y - 6, width: btn.width - 8, height: 4 }, blue), 'focus ring').toBeGreaterThan(5);
+  });
+
+  test('the textarea resize grip is drawn in ink', async ({ page: p }) => {
+    const original = await shoot(p, page.css);
+    const memo = await rectOf(p, '#memo');
+    const corner = { x: memo.x + memo.width - 16, y: memo.y + memo.height - 16, width: 13, height: 13 };
+    const before = count(original, corner, dark);
+    const shot = await shoot(p, await transform(page.css, {}, page.cssPath));
+    const after = count(shot, corner, dark);
+    expect(after, `grip ink ${before} → ${after}`).toBeGreaterThan(6);
+    expect(difference(inkMask(original, corner, dark), inkMask(shot, corner, dark))).toBeGreaterThan(SAME);
+  });
+
+  test("a checked radio's dot sits inside its circle", async ({ page: p }) => {
+    const shot = await shoot(p, await transform(page.css, {}, page.cssPath));
+    const radio = await rectOf(p, '#radio1');
+    const cx = radio.x + radio.width / 2;
+    const cy = radio.y + radio.height / 2;
+    const dots = Array.from({ length: 21 * 21 }, (_, i) => [cx - 10 + (i % 21), cy - 10 + Math.floor(i / 21)] as const).filter(([x, y]) => blue(pixelAt(shot, x, y)));
+    expect(dots.length).toBeGreaterThan(5);
+    for (const [x, y] of dots) expect(Math.hypot(x - cx, y - cy)).toBeLessThan(4);
+  });
 });
+

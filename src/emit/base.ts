@@ -6,7 +6,7 @@
 // The outlines (text fields, textarea, select, hr) are plain CSS borders in var() colours: the
 // compiler then draws them like any other border, dark mode included (M3). Checkboxes, radios and
 // the select arrow are not borders; their drawings come in ready made (see index.ts).
-import postcss, { type AtRule, type ChildNode, type Container, type Root } from 'postcss';
+import postcss, { type AtRule, type ChildNode, type Container, type Declaration, type Node, type Root, type Rule } from 'postcss';
 import type { BaseColors, BaseOptions } from '../options';
 import type { Diagnostic, Result } from '../report/diagnostics';
 import type { ImagePlacement } from '../draw/stroke';
@@ -33,10 +33,31 @@ export type ThemeDrawings = {
   /** The focus rings of a checkbox and a radio (one drawing each). */
   readonly checkboxRing: string;
   readonly radioRing: string;
+  /** A focused button (M7b): its border in the accent colour with a ring, per slot. */
+  readonly buttonFocus: ReadonlyArray<Slot>;
+  /** The link underline (M7b, one drawing). */
+  readonly link: string;
+  /** The textarea resize grip's `url()` (M7b), written as is like the arrow. */
+  readonly resizer: string;
 };
 
-/** Where the focus drawings go (the same in every colour scheme). */
-export type FocusPlacements = { readonly field: ImagePlacement; readonly choiceOutset: number };
+/** Where the drawings go (the same in every colour scheme). */
+export type FocusPlacements = {
+  readonly field: ImagePlacement;
+  readonly choiceOutset: number;
+  readonly button: ImagePlacement;
+  readonly link: ImagePlacement;
+};
+
+/**
+ * The base link underline (M7b), read by the link's `border-image`. A page rule that sets the
+ * link's `text-decoration` itself sets it to `none` (see `markLinkLines`): its underline is its
+ * own (M6d draws it, or the browser does). Not inherited, like `--skb-outline`.
+ */
+export const LINK_LINE = '--skb-link';
+
+/** Buttons (M7b), one selector each. */
+const BUTTONS = ['button', 'input[type=submit]', 'input[type=button]', 'input[type=reset]'];
 
 /**
  * Keeps the browser's focus outline where the base's focus drawing does not show. The base turns
@@ -56,6 +77,9 @@ const TEXT_INPUT = `input:not(${NOT_TEXT.map((type) => `[type=${type}]`).join(',
 const FIELDS = [TEXT_INPUT, 'textarea', 'select'];
 
 const DARK = '@media (prefers-color-scheme: dark)';
+
+/** Button backgrounds: the ink at a few percent, so they follow dark mode with it. */
+const tint = (percent: number): string => `color-mix(in srgb, var(${INK}) ${percent}%, transparent)`;
 
 const slots = (list: ReadonlyArray<Slot>): string => list.map((slot) => `${slotVar(slot.seed, slot.flip)}: var(${slot.drawing});`).join(' ');
 
@@ -77,6 +101,9 @@ const controlRules = (d: ThemeDrawings): ReadonlyArray<string> => [
   ...FIELDS.map((field) => `:where(${field}):focus-visible { ${OFF} ${slots(d.fieldFocus)} }`),
   `:where(input[type=checkbox]):focus-visible { ${OFF} border-image-source: var(${d.checkboxRing}); }`,
   `:where(input[type=radio]):focus-visible { ${OFF} border-image-source: var(${d.radioRing}); }`,
+  ...BUTTONS.map((button) => `:where(${button}):focus-visible { ${OFF} ${slots(d.buttonFocus)} }`),
+  `:where(a:any-link) { ${OFF} ${LINK_LINE}: var(${d.link}); }`,
+  `:where(textarea)::-webkit-resizer { background: ${d.resizer} no-repeat center / 100% 100%; }`,
 ];
 
 /**
@@ -101,6 +128,16 @@ export const baseCss = (colors: BaseOptions, drawings: BaseDrawings, focus: Focu
     ...['checkbox', 'radio'].map(
       (type) => `:where(input[type=${type}]):focus-visible { ${OFF} ${NO_OUTLINE} border-image: none 0 fill / 0 / ${focus.choiceOutset}px stretch; }`,
     ),
+    // Buttons: a drawn ink border (outer size as the browser's 2px border + 1px 6px padding), a
+    // light background that darkens on hover and press, and the focus ring of the fields.
+    ...BUTTONS.flatMap((button) => [
+      `:where(${button}) { appearance: none; -webkit-appearance: none; border: 1px solid var(${INK}); border-radius: 6px; padding: 2px 7px; background-color: ${tint(6)}; }`,
+      `:where(${button}):hover { background-color: ${tint(10)}; }`,
+      `:where(${button}):active { background-color: ${tint(16)}; }`,
+      `:where(${button}):focus-visible { ${OFF} ${NO_OUTLINE} border-color: transparent; border-image: ${image(`var(${PICK})`, focus.button)}; }`,
+    ]),
+    // Links: the accent colour and a drawn underline below the text (as M6d draws one), in place of the browser's.
+    `:where(a:any-link) { ${OFF} color: var(${ACCENT}); text-decoration-line: none; border-image: ${image(`var(${LINK_LINE})`, focus.link)}; }`,
     `:where(select) { appearance: none; -webkit-appearance: none; padding: 2px 28px 2px 4px; background-repeat: no-repeat; background-position: right 8px center; background-size: 12px 10px; }`,
     choice('checkbox', '3px 3px 3px 4px'),
     choice('radio', '3px 3px 0 5px'),
@@ -109,7 +146,7 @@ export const baseCss = (colors: BaseOptions, drawings: BaseDrawings, focus: Focu
     ...dark,
   ];
   // Registered outside the layer: not inherited, with no initial value (so `var()` falls back to `none`).
-  const property = `@property ${KEEP_OUTLINE} { syntax: '*'; inherits: false; }\n`;
+  const property = [KEEP_OUTLINE, LINK_LINE].map((name) => `@property ${name} { syntax: '*'; inherits: false; }\n`).join('');
   return `${property}@layer ${BASE_LAYER} {\n${rules.map((rule) => `  ${rule}`).join('\n')}\n}\n`;
 };
 
@@ -134,4 +171,25 @@ export const findBase = (root: Root): Result<AtRule | undefined> => {
 /** Puts the base styles where the `@sketchify base` line was. */
 export const expandBase = (line: AtRule, css: string): void => {
   line.replaceWith(postcss.parse(css).nodes);
+};
+
+/** Whether a rule sits in the base layer (the base's own rules, not the page's). */
+export const inBase = (node: Node): boolean => {
+  const parent = node.parent as Node | undefined;
+  if (!parent || parent.type === 'root') return false;
+  return (parent.type === 'atrule' && /^layer$/i.test((parent as AtRule).name) && (parent as AtRule).params.trim() === BASE_LAYER) || inBase(parent);
+};
+
+/**
+ * With a base in the file, a page rule that sets `text-decoration` itself turns the base link
+ * underline off on the elements it styles (`--skb-link: none`): `.nav a { text-decoration: none }`,
+ * a dotted link, or one whose solid underline M6d draws (or leaves to the browser).
+ */
+export const markLinkLines = (rules: ReadonlyArray<Rule>): void => {
+  rules
+    .filter((rule) => !inBase(rule))
+    .forEach((rule) => {
+      const last = (rule.nodes ?? []).filter((node): node is Declaration => node.type === 'decl' && /^text-decoration(-line)?$/i.test(node.prop)).at(-1);
+      if (last) last.after(postcss.decl({ prop: LINK_LINE, value: 'none', important: last.important === true }));
+    });
 };

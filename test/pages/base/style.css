@@ -7,3 +7,6 @@
 body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
 .page { width: 420px; margin: 0 auto; padding: 24px; display: grid; gap: 12px; }
 .own { border: 2px solid #b91c1c; border-radius: 6px; padding: 6px 8px; }
+.plain-link { text-decoration: none; }
+.dotted-link { text-decoration: underline dotted; }
+.links { margin: 0; }

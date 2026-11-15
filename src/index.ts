@@ -1,4 +1,4 @@
-import type { AtRule, Plugin, PluginCreator, Result, Root, Rule } from 'postcss';
+import type { Plugin, PluginCreator, Result, Root, Rule } from 'postcss';
 import { drawingName } from './draw/hash';
 import { drawFocusNineSlice, drawNineSlice, drawStrip, geometryFor, nineSlicePlacement, stripGeometry, underlinePlacement } from './draw/stroke';
 import { FLIPS, type Flip } from './draw/svg';
@@ -7,9 +7,10 @@ import { drawHatchTile } from './draw/hatch';
 import { type NamedDrawing, emitVariants } from './emit/variants';
 import { scopeOf } from './gather/colors';
 import { type DrawRequest, type Emission, SEEDS, anchorOf, gather } from './gather/gather';
+import { UNDERLINE_WIDTH } from './gather/request';
 import { type BaseColors, type ResolvedOptions, baseOf, hatchOf, resolveOptions, type SketchifyOptions } from './options';
-import { BASE_LAYER, type BaseDrawings, type ThemeDrawings, baseCss, expandBase, findBase } from './emit/base';
-import { CHOICE_RING_OUTSET, drawCheckbox, drawChevron, drawChoiceRing, drawRadio } from './draw/controls';
+import { type BaseDrawings, type ThemeDrawings, baseCss, expandBase, findBase, inBase, markLinkLines } from './emit/base';
+import { CHOICE_RING_OUTSET, drawCheckbox, drawChevron, drawChoiceRing, drawRadio, drawResizer } from './draw/controls';
 import { collect } from './read/collect';
 import { variableDefs } from './read/variables';
 import { type Diagnostic, isError, position } from './report/diagnostics';
@@ -49,8 +50,15 @@ const themeDrawings = (colors: BaseColors, rough: ResolvedOptions['rough'], name
     fieldFocus: slots((seed, flip) => drawFocusNineSlice(focusedField(colors.accent, rough, seed), flip).url),
     checkboxRing: nameOf(drawChoiceRing({ shape: 'box', color: colors.accent, rough, seed: SEEDS[0] }).url),
     radioRing: nameOf(drawChoiceRing({ shape: 'circle', color: colors.accent, rough, seed: SEEDS[0] }).url),
+    buttonFocus: slots((seed, flip) => drawFocusNineSlice(focusedButton(colors.accent, rough, seed), flip).url),
+    // The link underline is M6d's: the one-sided line's drawing at the bottom.
+    link: nameOf(drawStrip({ side: 'bottom', width: UNDERLINE_WIDTH, color: colors.accent, rough, seed: SEEDS[0] }).url),
+    resizer: drawResizer({ color: colors.ink, rough, seed: SEEDS[0] }).url,
   };
 };
+
+/** A base button's border (1px, radius 6) in the accent colour, as drawn when focused. */
+const focusedButton = (color: string, rough: ResolvedOptions['rough'], seed: number) => ({ width: 1, radius: 6, color, rough, seed });
 
 /** A base field's border (1px, radius 4) in the accent colour, as drawn when focused. */
 const focusedField = (color: string, rough: ResolvedOptions['rough'], seed: number) => ({ width: 1, radius: 4, color, rough, seed });
@@ -58,6 +66,8 @@ const focusedField = (color: string, rough: ResolvedOptions['rough'], seed: numb
 const focusPlacements = (rough: ResolvedOptions['rough']) => ({
   field: drawFocusNineSlice(focusedField('#000', rough, SEEDS[0])).placement,
   choiceOutset: CHOICE_RING_OUTSET,
+  button: drawFocusNineSlice(focusedButton('#000', rough, SEEDS[0])).placement,
+  link: underlinePlacement(UNDERLINE_WIDTH),
 });
 
 const baseDrawings = (options: ResolvedOptions, nameOf: (url: string) => string): BaseDrawings => {
@@ -163,11 +173,6 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
     });
     // With a base in the file (M7a), a page rule that draws a border may draw a form field's: there
     // the base's focus ring does not show, so the browser's outline must stay.
-    const inBase = (node: Rule): boolean => {
-      const parent = node.parent;
-      if (!parent || parent.type === 'root') return false;
-      return (parent.type === 'atrule' && (parent as AtRule).name.toLowerCase() === 'layer' && (parent as AtRule).params.trim() === BASE_LAYER) || inBase(parent as Rule);
-    };
     const keepOutline = (rule: Rule) => (base.value !== undefined && !inBase(rule) ? { keepOutline: true } : {});
     const lookOf = (outcome: Emission['outcome'], mix: boolean, rule?: Rule): Look => {
       switch (outcome.kind) {
@@ -220,6 +225,8 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
         insert(rule.rule, [...emission.conditions, ...variant.conditions], emission.selector, { kind: 'paint', hatch: tileFor(variant.color) }, important, false);
       });
     });
+    // With a base (M7b): page rules that set a link's `text-decoration` turn the base underline off there.
+    if (base.value) markLinkLines(facts.value.map((f) => f.rule));
     facts.value.forEach(removeControl);
     const stored: ReadonlyArray<NamedDrawing> = [...named].map(([name, url]) => ({ name, url }));
     emitVariants(

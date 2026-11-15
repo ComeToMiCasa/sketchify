@@ -615,12 +615,12 @@ describe('@sketchify base (M7a)', () => {
 
   it('puts the base styles in a layer where the line was, all at zero specificity', async () => {
     const out = await transform(`.a { color: red; }\n${BASE}.b { color: blue; }\n`);
-    expect(out).toMatch(/\.a \{ color: red; \}\n@property --skb-outline \{ syntax: '\*'; inherits: false; \}\n@layer sketchify-base \{[\s\S]*\}\n\.b \{ color: blue; \}/);
+    expect(out).toMatch(/\.a \{ color: red; \}\n@property --skb-outline \{ syntax: '\*'; inherits: false; \}\n@property --skb-link \{ syntax: '\*'; inherits: false; \}\n@layer sketchify-base \{[\s\S]*\}\n\.b \{ color: blue; \}/);
     expect(out).not.toContain('@sketchify');
     const layer = /@layer sketchify-base \{([\s\S]*?)\n\}/.exec(out)?.[1] ?? '';
     const selectors = [...layer.matchAll(/^ {2}(?:@media[^{]*\{ )?([^@{][^{]*?) \{/gm)].map((m) => m[1] ?? '');
     expect(selectors.length).toBeGreaterThan(10);
-    for (const selector of selectors) expect(selector, selector).toMatch(/^(:root|:where\(.*\)(:focus-visible)?)$/);
+    for (const selector of selectors) expect(selector, selector).toMatch(/^(:root|:where\(.*\)(:focus-visible|:hover|:active|::-webkit-resizer)?)$/);
   });
 
   it('draws the field and hr outlines like any border, and the choices from neighbour slots', async () => {
@@ -668,5 +668,38 @@ describe('@sketchify base (M7a)', () => {
   it('two base lines or an unknown @sketchify are errors', async () => {
     expect(await errorOf(`${BASE}${BASE}`)).toContain('한 번만');
     expect(await errorOf('@sketchify everything;')).toContain('알 수 없는 `@sketchify everything`');
+  });
+});
+
+describe('@sketchify base, M7b: links, buttons, the resize grip', () => {
+  const BASE = '@sketchify base;\n';
+
+  it('colours links in the accent and draws their underline from a non-inherited variable', async () => {
+    const out = await transform(BASE);
+    expect(out).toMatch(/:where\(a:any-link\) \{ color: var\(--skb-accent\); text-decoration-line: none; border-image: var\(--skb-link\) 0 16 11\.5 16 \/ 0 16px 11\.5px 16px \/ 11\.5px 3px 6\.5px 3px stretch; \}/);
+    expect(out).toMatch(/:where\(a:any-link\) \{ --skb-link: var\(--sk-[0-9a-f]{8}\); \}/);
+    expect(out).toContain("@property --skb-link { syntax: '*'; inherits: false; }");
+  });
+
+  it("turns the base link underline off where a page rule sets the link's text-decoration", async () => {
+    const out = await transform(`${BASE}.nav a { text-decoration: none; }\na:hover { text-decoration-line: none; }\na.dotted { text-decoration: underline dotted; }\n`);
+    expect(out).toContain('.nav a { text-decoration: none; --skb-link: none; }');
+    expect(out).toContain('a:hover { text-decoration-line: none; --skb-link: none; }');
+    expect(out).toContain('a.dotted { text-decoration: underline dotted; --skb-link: none; }');
+    // Not without a base, and not on the base's own rules.
+    expect(await transform('.nav a { text-decoration: none; }\n')).toBe('.nav a { text-decoration: none; }\n');
+    expect((out.match(/--skb-link: none/g) ?? []).length).toBe(3);
+  });
+
+  it('draws buttons: ink border, a light tint that darkens on hover and press, the focus ring', async () => {
+    const out = shape(await transform(BASE));
+    expect(out).toMatch(/:where\(button\) \{ appearance: none; -webkit-appearance: none; border: 1px solid var\(--skb-ink\); border-color: transparent; SLOTS; border-image: var\(--sk\)[^}]*border-radius: 6px; padding: 2px 7px; background-color: color-mix\(in srgb, var\(--skb-ink\) 6%, transparent\); \}/);
+    expect(out).toContain(':where(input[type=submit]):hover { background-color: color-mix(in srgb, var(--skb-ink) 10%, transparent); }');
+    expect(out).toContain(':where(button):active { background-color: color-mix(in srgb, var(--skb-ink) 16%, transparent); }');
+    expect(out).toMatch(/:where\(button\):focus-visible \{ outline-style: var\(--skb-outline, none\); border-color: transparent; border-image: var\(--sk\)/);
+  });
+
+  it('draws the textarea resize grip', async () => {
+    expect(await transform(BASE)).toMatch(/:where\(textarea\)::-webkit-resizer \{ background: url\("data:image\/svg\+xml,[^"]*"\) no-repeat center \/ 100% 100%; \}/);
   });
 });

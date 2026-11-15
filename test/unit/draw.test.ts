@@ -305,6 +305,18 @@ describe('form controls (M7a)', () => {
     expect(drawChevron({ color: '#111111', rough: PRESETS.normal, seed: 11 }).svg).toMatch(/^<svg [^>]*width='16' height='14'/);
   });
 
+  it("keeps a checked radio's dot well inside its circle", () => {
+    for (const seed of [11, 23, 37]) {
+      const svg = drawRadio({ ...input, checked: true, seed }).svg;
+      const dot = /<path d='([^']*)' fill='#2563eb'/.exec(svg)?.[1] ?? '';
+      const points = [...dot.matchAll(/(-?[\d.]+)[ ,](-?[\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])] as const);
+      expect(points.length).toBeGreaterThan(4);
+      // The circle (radius 6.7) has its inner edge at about 5 from the centre (half its line and its
+      // overshoot inside); the dot stays within 4, so white shows between them.
+      for (const [x, y] of points) expect(Math.hypot(x - 9, y - 9), `${x},${y}`).toBeLessThan(4);
+    }
+  });
+
   it('is deterministic, and a flip mirrors the box but not the tick', () => {
     const checked = { ...input, checked: true };
     expect(drawCheckbox(checked).svg).toBe(drawCheckbox(checked).svg);
