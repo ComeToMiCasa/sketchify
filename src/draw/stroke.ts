@@ -299,3 +299,44 @@ export const underlinePlacement = (width: number): ImagePlacement => {
   const [top = '0px', right = '0px', , left = '0px'] = placement.outset.split(' ');
   return { ...placement, outset: `${top} ${right} ${round1(across / 2 + width / 2)}px ${left}` };
 };
+
+// --- Focus rings (spec "폼 요소와 @sketchify base", M7a) ----------------------------------
+// A focused base field: its border (the same shape as unfocused, in the accent colour) and a
+// second hand-drawn ring a little outside it, in one border image. It replaces the browser's focus
+// outline, so it must be as easy to see. The ring lies in the outset: the layout stays.
+
+/** Space between the border's outer edge and the ring, and the ring's width (px). */
+export const FOCUS_RING = { gap: 2, width: 1.5 } as const;
+
+/**
+ * The focused drawing: the plain border's square drawing set `inset` px in from a larger square,
+ * so its corners and edges are the unfocused ones (the border does not jump on focus), and the ring
+ * around it. The corner slices grow by `inset` and hold both.
+ */
+export const drawFocusNineSlice = (input: NineSliceInput, flip: Flip = 'none'): { readonly url: string; readonly placement: ImagePlacement } => {
+  const plain = nineSliceGeometry(input.width, input.radius);
+  const off = input.width / 2 + FOCUS_RING.gap + FOCUS_RING.width / 2;
+  const inset = Math.ceil(off + FOCUS_RING.width + 2);
+  const size = plain.size + 2 * inset;
+  const at = inset + plain.margin - off;
+  const side = size - 2 * at;
+  const ringOptions = {
+    stroke: input.color,
+    strokeWidth: FOCUS_RING.width,
+    seed: input.seed + 5,
+    roughness: input.rough.roughness,
+    bowing: input.rough.bowing,
+    maxRandomnessOffset: Math.min(input.rough.maxRandomnessOffset, 1.5),
+  };
+  const ring = input.radius > 0 ? generator.path(roundedRect(at, at, side, side, input.radius + off), ringOptions) : generator.rectangle(at, at, side, side, ringOptions);
+  const ringPaths = generator
+    .toPaths(ring)
+    .map((path) => `<path d='${tidyPath(path.d)}'/>`)
+    .join('');
+  const body =
+    `<g transform='translate(${inset} ${inset})'>${borderLines(input, plain, flipTransform(flip, plain.size))}</g>` +
+    `<g${flipTransform(flip, size)} fill='none' stroke='${input.color}' stroke-width='${round1(FOCUS_RING.width * STROKE_SCALE)}' stroke-linecap='round' stroke-linejoin='round'>${ringPaths}</g>`;
+  const svg = svgDocument(size, size, body);
+  const slice = round1(plain.slice + inset);
+  return { url: dataUri(svg), placement: { slice: `${slice}`, width: `${slice}px`, outset: `${round1(plain.outset + inset)}px` } };
+};

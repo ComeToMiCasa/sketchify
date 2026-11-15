@@ -3,6 +3,7 @@ import { HATCH_DEFAULTS, HATCH_PRESETS, PRESETS } from '../../src/options';
 import { drawExactHatch, drawHatchTile, exactHatchReach, hatchTileSize } from '../../src/draw/hatch';
 import { drawNineSlice, drawStrip, geometryFor, nineSliceGeometry, stripGeometry, underlinePlacement } from '../../src/draw/stroke';
 import { FLIPS } from '../../src/draw/svg';
+import { drawCheckbox, drawChevron, drawRadio } from '../../src/draw/controls';
 import { dataUri, round1, tidyPath } from '../../src/draw/svg';
 
 describe('svg helpers', () => {
@@ -289,5 +290,29 @@ describe('underline (M6d)', () => {
     // Bottom slice 12px deep with the line in its middle: 6px + 1px puts the centre 1px below.
     expect(under.outset).toBe('12px 3px 7px 3px');
     expect(underlinePlacement(1.5).outset).toBe('11.5px 3px 6.5px 3px');
+  });
+});
+
+describe('form controls (M7a)', () => {
+  const input = { ink: '#111111', accent: '#2563eb', checked: false, rough: PRESETS.normal, seed: 11 };
+
+  it('draws the box and circle in ink, the tick and dot in the accent only when checked', () => {
+    expect(drawCheckbox(input).svg).toContain("stroke='#111111'");
+    expect(drawCheckbox(input).svg).not.toContain('#2563eb');
+    expect(drawCheckbox({ ...input, checked: true }).svg).toContain("stroke='#2563eb'");
+    expect(drawRadio(input).svg).not.toContain('#2563eb');
+    expect(drawRadio({ ...input, checked: true }).svg).toContain("fill='#2563eb'");
+    expect(drawChevron({ color: '#111111', rough: PRESETS.normal, seed: 11 }).svg).toMatch(/^<svg [^>]*width='16' height='14'/);
+  });
+
+  it('is deterministic, and a flip mirrors the box but not the tick', () => {
+    const checked = { ...input, checked: true };
+    expect(drawCheckbox(checked).svg).toBe(drawCheckbox(checked).svg);
+    const flipped = drawCheckbox(checked, 'x').svg;
+    const groups = [...flipped.matchAll(/<g([^>]*)>/g)].map((m) => m[1] ?? '');
+    expect(groups[0]).toContain('transform=');
+    expect(groups[1]).not.toContain('transform=');
+    const tick = (svg: string) => /<g [^>]*stroke='#2563eb'[^>]*>.*?<\/g>/.exec(svg)?.[0];
+    expect(tick(flipped)).toBe(tick(drawCheckbox(checked).svg));
   });
 });

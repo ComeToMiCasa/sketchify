@@ -609,3 +609,64 @@ describe('underlines (M6d)', () => {
     expect(await transform(css)).not.toContain('text-decoration-line');
   });
 });
+
+describe('@sketchify base (M7a)', () => {
+  const BASE = '@sketchify base;\n';
+
+  it('puts the base styles in a layer where the line was, all at zero specificity', async () => {
+    const out = await transform(`.a { color: red; }\n${BASE}.b { color: blue; }\n`);
+    expect(out).toMatch(/\.a \{ color: red; \}\n@property --skb-outline \{ syntax: '\*'; inherits: false; \}\n@layer sketchify-base \{[\s\S]*\}\n\.b \{ color: blue; \}/);
+    expect(out).not.toContain('@sketchify');
+    const layer = /@layer sketchify-base \{([\s\S]*?)\n\}/.exec(out)?.[1] ?? '';
+    const selectors = [...layer.matchAll(/^ {2}(?:@media[^{]*\{ )?([^@{][^{]*?) \{/gm)].map((m) => m[1] ?? '');
+    expect(selectors.length).toBeGreaterThan(10);
+    for (const selector of selectors) expect(selector, selector).toMatch(/^(:root|:where\(.*\)(:focus-visible)?)$/);
+  });
+
+  it('draws the field and hr outlines like any border, and the choices from neighbour slots', async () => {
+    const raw = await transform(BASE);
+    const out = shape(raw);
+    expect(out).toMatch(/:where\(textarea\) \{ border: 1px solid var\(--skb-ink\); border-color: transparent; SLOTS; border-image: var\(--sk\)/);
+    expect(out).toMatch(/:where\(hr\) \{ border: 0; border-top: 1px solid var\(--skb-ink\); border-color: transparent; SLOTS; border-image:/);
+    expect(out).toMatch(/:where\(input\[type=checkbox\]:checked\) \{ SLOTS; \}/);
+    expect(out).toMatch(/:where\(input\[type=checkbox\]\) \{ appearance: none;[^}]*background-image: var\(--sk\);/);
+    // The pick rules come with it.
+    expect(raw).toContain(':where(*) { --sk: var(--sk-0);');
+  });
+
+  it('replaces the focus outline with a drawn ring, written out whole (not redrawn)', async () => {
+    const out = shape(await transform(BASE));
+    expect(out).toContain(':where(textarea):focus-visible { outline-style: var(--skb-outline, none); border-color: transparent; border-image: var(--sk) 15 / 15px / 10.5px stretch; }');
+    expect(out).toMatch(/:where\(textarea\):focus-visible \{ SLOTS; \}/);
+    expect(out).toContain(':where(input[type=checkbox]):focus-visible { outline-style: var(--skb-outline, none); border-image: none 0 fill / 0 / 5px stretch; }');
+    expect(out).toMatch(/:where\(input\[type=radio\]\):focus-visible \{ border-image-source: var\(--sk-[0-9a-f]{8}\); \}/);
+    expect(out).not.toContain('--sketch');
+  });
+
+  it('bakes the colours into the drawings, with dark ones from the option', async () => {
+    const light = await transform(BASE);
+    expect(light).toContain("stroke='%231d2433'");
+    expect(light).toContain("stroke='%232563eb'");
+    expect(light).not.toContain('prefers-color-scheme');
+    const dark = await transform(BASE, { base: { dark: { ink: '#e5e7eb', accent: '#f59e0b' } } });
+    expect(dark).toMatch(/@media \(prefers-color-scheme: dark\) \{ :root \{ --skb-ink: #e5e7eb; --skb-accent: #f59e0b; \} \}/);
+    expect(dark).toContain("stroke='%23f59e0b'");
+    expect(dark).toMatch(/@media \(prefers-color-scheme: dark\) \{ :where\(input\[type=radio\]:checked\) \{/);
+  });
+
+  it("lets the page's own rules draw their own borders, keeping the browser's focus outline there", async () => {
+    const out = shape(await transform(`${BASE}.field { border: 2px solid #b91c1c; }\n`));
+    expect(out).toMatch(/\.field \{ border: 2px solid #b91c1c; border-color: transparent; SLOTS; border-image: var\(--sk\) 14 \/ 14px \/ 5px stretch; --skb-outline: auto; \}/);
+    // Without a base, nothing about outlines.
+    expect(await transform('.field { border: 2px solid #b91c1c; }\n')).not.toContain('--skb-outline');
+  });
+
+  it('changes nothing without the line', async () => {
+    expect(await transform('input { color: red; }\n')).toBe('input { color: red; }\n');
+  });
+
+  it('two base lines or an unknown @sketchify are errors', async () => {
+    expect(await errorOf(`${BASE}${BASE}`)).toContain('한 번만');
+    expect(await errorOf('@sketchify everything;')).toContain('알 수 없는 `@sketchify everything`');
+  });
+});

@@ -3,6 +3,7 @@ import postcss from 'postcss';
 import type { ImagePlacement } from '../draw/stroke';
 import type { RuleFacts } from '../read/collect';
 import type { Condition } from '../read/variables';
+import { KEEP_OUTLINE } from './base';
 import { PICK, slotVar } from './variants';
 
 /** One drawing variable for each `--sk-{seed}-{flip}` slot. */
@@ -85,6 +86,8 @@ export type Look =
       readonly hatch?: HatchLook;
       /** An exact hatch (M6c) is in the drawing: a repeated hatch from another rule must not show under it. */
       readonly exact?: boolean;
+      /** A page rule in a file with a base (M7a): keeps the browser's focus outline the base turns off. */
+      readonly keepOutline?: boolean;
       readonly underline?: UnderlineLook;
     }
   /** The original border, shown as CSS would (`border-image: none` and its colours). */
@@ -131,6 +134,7 @@ const lookDecls = (look: Look, important: boolean, hideColor: boolean): Readonly
         ...hatchDecls(look.hatch, important, hideColor),
         ...imageDecls(look.image, important),
         ...underlineDecls(look.underline, important),
+        ...(look.keepOutline ? [postcss.decl({ prop: KEEP_OUTLINE, value: 'auto', important })] : []),
       ];
     case 'plain':
       return [

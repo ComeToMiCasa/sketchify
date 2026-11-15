@@ -12,8 +12,14 @@ const layoutWith = async (page: Page, html: string, css: string): Promise<Layout
   return captureLayout(page);
 };
 
+/**
+ * Pages with `@sketchify base`: the base replaces the browser's look of form controls and is held
+ * only to staying close to the browser's sizes (spec "폼 요소와 @sketchify base"), checked in base.spec.ts.
+ */
+const BASE_PAGES: ReadonlySet<string> = new Set(['base']);
+
 test.describe('layout is unchanged by the transform', () => {
-  for (const testPage of loadPages()) {
+  for (const testPage of loadPages().filter((p) => !BASE_PAGES.has(p.name))) {
     test(testPage.name, async ({ page }) => {
       const before = await layoutWith(page, testPage.html, testPage.css);
       const after = await layoutWith(page, testPage.html, await transform(testPage.css, {}, testPage.cssPath));

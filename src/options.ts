@@ -1,3 +1,4 @@
+import { parseColor } from './read/values';
 import type { Result } from './report/diagnostics';
 
 export type RoughnessPreset = 'subtle' | 'normal' | 'messy';
@@ -11,7 +12,19 @@ export type SketchifyOptions = {
    * unit) on top of a preset (`{ preset: 'bold', gap: 10 }`; `normal` when no preset is named).
    */
   readonly hatch?: HatchPreset | (Partial<HatchOptions> & { readonly preset?: HatchPreset });
+  /**
+   * Colours of `@sketchify base` (spec "폼 요소와 @sketchify base"): outlines in `ink`, ticks, dots
+   * and focus in `accent`; `dark` replaces them under `prefers-color-scheme: dark`. Literal colours.
+   */
+  readonly base?: Partial<BaseColors> & { readonly dark?: Partial<BaseColors> };
 };
+
+/** The two colours of the base drawings. */
+export type BaseColors = { readonly ink: string; readonly accent: string };
+
+export type BaseOptions = BaseColors & { readonly dark?: BaseColors };
+
+export const BASE_DEFAULTS: BaseColors = { ink: '#1d2433', accent: '#2563eb' };
 
 export type HatchPreset = 'fine' | 'normal' | 'bold';
 
@@ -75,9 +88,13 @@ export type ResolvedOptions = {
   readonly rough: Rough;
   /** Present only when the user set hatch options; use `hatchOf` for the full set with defaults. */
   readonly hatch?: HatchOptions;
+  /** Present only when the user set base colours; use `baseOf` for the full set with defaults. */
+  readonly base?: BaseOptions;
 };
 
 export const hatchOf = (options: ResolvedOptions): HatchOptions => options.hatch ?? HATCH_DEFAULTS;
+
+export const baseOf = (options: ResolvedOptions): BaseOptions => options.base ?? BASE_DEFAULTS;
 
 export const PRESETS: Readonly<Record<RoughnessPreset, Rough>> = {
   subtle: { roughness: 0.6, bowing: 0.6, maxRandomnessOffset: 1.2 },
@@ -160,6 +177,37 @@ const resolveHatch = (hatch: unknown): Result<HatchOptions | undefined> => {
   return { value: diagnostics.length > 0 ? undefined : merged, diagnostics };
 };
 
+const COLOR_KEYS: ReadonlyArray<keyof BaseColors> = ['ink', 'accent'];
+
+/** One set of base colours: known keys, literal colours (they are baked into the drawings). */
+const resolveColors = (given: unknown, path: string, fallback: BaseColors): Result<BaseColors> => {
+  if (typeof given !== 'object' || given === null) {
+    return { value: fallback, diagnostics: optionError(`${path} 옵션은 객체여야 합니다. 받은 값: ${JSON.stringify(given)}`) };
+  }
+  const entries = given as Readonly<Record<string, unknown>>;
+  const keyErrors = Object.keys(entries)
+    .filter((key) => !(COLOR_KEYS as ReadonlyArray<string>).includes(key) && !(path === 'base' && key === 'dark'))
+    .flatMap((key) => optionError(`알 수 없는 ${path} 옵션: ${key}. 쓸 수 있는 옵션: ink, accent${path === 'base' ? ', dark' : ''}`));
+  const colors = COLOR_KEYS.map((key) => {
+    const value = entries[key] ?? fallback[key];
+    const parsed = typeof value === 'string' ? parseColor(value) : undefined;
+    return parsed?.kind === 'literal'
+      ? { key, css: parsed.css, diagnostics: [] }
+      : { key, css: fallback[key], diagnostics: optionError(`${path}.${key}는 빌드 때 알 수 있는 색(#hex, rgb() 등, var()·currentColor 제외)이어야 합니다. 받은 값: ${JSON.stringify(value)}`) };
+  });
+  const value = Object.fromEntries(colors.map((c) => [c.key, c.css])) as BaseColors;
+  return { value, diagnostics: [...keyErrors, ...colors.flatMap((c) => c.diagnostics)] };
+};
+
+const resolveBase = (base: unknown): Result<BaseOptions | undefined> => {
+  if (base === undefined) return { value: undefined, diagnostics: [] };
+  const light = resolveColors(base, 'base', BASE_DEFAULTS);
+  const darkGiven = typeof base === 'object' && base !== null ? (base as Readonly<Record<string, unknown>>)['dark'] : undefined;
+  const dark = darkGiven === undefined ? undefined : resolveColors(darkGiven, 'base.dark', light.value);
+  const diagnostics = [...light.diagnostics, ...(dark?.diagnostics ?? [])];
+  return { value: diagnostics.length > 0 ? undefined : { ...light.value, ...(dark ? { dark: dark.value } : {}) }, diagnostics };
+};
+
 /** Validates user options (they may come from plain JS) and fills in defaults. */
 export const resolveOptions = (options: unknown): Result<ResolvedOptions> => {
   const fallback: ResolvedOptions = { rough: PRESETS.normal };
@@ -170,8 +218,9 @@ export const resolveOptions = (options: unknown): Result<ResolvedOptions> => {
   const given = options as Readonly<Record<string, unknown>>;
   const rough = resolveRoughness(given['roughness']);
   const hatch = resolveHatch(given['hatch']);
+  const base = resolveBase(given['base']);
   return {
-    value: hatch.value ? { rough: rough.value, hatch: hatch.value } : { rough: rough.value },
-    diagnostics: [...rough.diagnostics, ...hatch.diagnostics],
+    value: { rough: rough.value, ...(hatch.value ? { hatch: hatch.value } : {}), ...(base.value ? { base: base.value } : {}) },
+    diagnostics: [...rough.diagnostics, ...hatch.diagnostics, ...base.diagnostics],
   };
 };

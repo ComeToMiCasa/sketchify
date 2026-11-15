@@ -1,0 +1,9 @@
+/* M7a example: `@sketchify base` on unstyled form controls and hr (spec "폼 요소와 @sketchify base").
+   Base is not held to the layout promise, only to staying close to the browser's sizes; this page is
+   left out of the layout test (test/browser/layout.spec.ts) and measured in base.spec.ts instead.
+   One field has the page's own style, which must win over the base. */
+@sketchify base;
+
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
+.page { width: 420px; margin: 0 auto; padding: 24px; display: grid; gap: 12px; }
+.own { border: 2px solid #b91c1c; border-radius: 6px; padding: 6px 8px; }

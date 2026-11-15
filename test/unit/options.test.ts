@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HATCH_DEFAULTS, HATCH_PRESETS, PRESETS, resolveOptions, roughFromNumber } from '../../src/options';
+import { BASE_DEFAULTS, HATCH_DEFAULTS, HATCH_PRESETS, PRESETS, resolveOptions, roughFromNumber } from '../../src/options';
 import { hatchTileSize } from '../../src/draw/hatch';
 
 describe('resolveOptions', () => {
@@ -104,5 +104,31 @@ describe('hatch presets', () => {
   it('rejects an unknown preset', () => {
     expect(resolveOptions({ hatch: 'heavy' }).diagnostics[0]?.message).toContain("'fine', 'normal', 'bold'");
     expect(resolveOptions({ hatch: { preset: 'heavy' } }).diagnostics[0]?.message).toContain('hatch.preset');
+  });
+});
+
+describe('base colours (M7a)', () => {
+  it('has no base option unless given, and defaults to ink #1d2433 and accent #2563eb', () => {
+    expect(resolveOptions({}).value.base).toBeUndefined();
+    expect(BASE_DEFAULTS).toEqual({ ink: '#1d2433', accent: '#2563eb' });
+    expect(resolveOptions({ base: { ink: '#000' } }).value.base).toEqual({ ink: '#000', accent: '#2563eb' });
+  });
+
+  it('takes dark colours, the light ones underneath', () => {
+    expect(resolveOptions({ base: { dark: { ink: '#eee' } } }).value.base).toEqual({ ink: '#1d2433', accent: '#2563eb', dark: { ink: '#eee', accent: '#2563eb' } });
+  });
+
+  it.each([
+    [{ ink: 'var(--x)' }, 'base.ink는'],
+    [{ accent: 'currentColor' }, 'base.accent는'],
+    [{ ink: 12 }, 'base.ink는'],
+    [{ dark: { ink: 'nope' } }, 'base.dark.ink는'],
+    [{ colour: '#000' }, '알 수 없는 base 옵션: colour'],
+    [{ dark: { dark: {} } }, '알 수 없는 base.dark 옵션: dark'],
+    ['#000', 'base 옵션은 객체여야'],
+  ])('rejects %j', (base, message) => {
+    const result = resolveOptions({ base });
+    expect(result.value.base).toBeUndefined();
+    expect(result.diagnostics.map((d) => d.message).join('\n')).toContain(message);
   });
 });
