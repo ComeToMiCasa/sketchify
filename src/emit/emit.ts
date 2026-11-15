@@ -53,7 +53,15 @@ export type Look =
    * A drawing. `filled`: it draws the background too, so the original one is hidden.
    * `background`: the original background colour to show again (another rule's fill hid it).
    */
-  | { readonly kind: 'image'; readonly image: BorderImage; readonly filled?: boolean; readonly background?: string; readonly hatch?: HatchLook }
+  | {
+      readonly kind: 'image';
+      readonly image: BorderImage;
+      readonly filled?: boolean;
+      readonly background?: string;
+      readonly hatch?: HatchLook;
+      /** An exact hatch (M6c) is in the drawing: a repeated hatch from another rule must not show under it. */
+      readonly exact?: boolean;
+    }
   /** The original border, shown as CSS would (`border-image: none` and its colours). */
   | { readonly kind: 'plain'; readonly colors: string; readonly background?: string; readonly hatch?: HatchLook }
   /** No border at all here (`border-image: none`; the colour stays transparent). */
@@ -94,6 +102,7 @@ const lookDecls = (look: Look, important: boolean, hideColor: boolean): Readonly
       return [
         ...(hideColor ? [postcss.decl({ prop: 'border-color', value: 'transparent', important })] : []),
         ...(look.hatch ? [] : backgroundDecl(look.filled ? 'transparent' : look.background, important)),
+        ...(look.exact ? [postcss.decl({ prop: 'background-image', value: 'none', important })] : []),
         ...hatchDecls(look.hatch, important, hideColor),
         ...imageDecls(look.image, important),
       ];
@@ -182,8 +191,8 @@ export const createInserter = (): Inserter => {
   };
 };
 
-/** Removes the plugin's controls (`--sketch`, `--sketch-fill`) from the output. */
+/** Removes the plugin's controls (`--sketch`, `--sketch-fill`, `--sketch-size`) from the output. */
 export const removeControl = (facts: RuleFacts): void => {
   if (facts.sketch.kind !== 'none') facts.sketch.decl.remove();
-  facts.decls.filter((decl) => decl.prop.toLowerCase() === '--sketch-fill').forEach((decl) => decl.remove());
+  facts.decls.filter((decl) => /^--sketch-(fill|size)$/i.test(decl.prop)).forEach((decl) => decl.remove());
 };

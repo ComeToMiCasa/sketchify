@@ -1,14 +1,29 @@
 // Fills drawn into the same 9-slice SVG as the border (spec "채움", M6a). Pure.
 // Ported from prototypes/fills.mjs: blob() (rough solid) and marker() (highlighter).
 import rough from 'roughjs';
-import type { Rough } from '../options';
+import type { HatchOptions, Rough } from '../options';
 import { round1, tidyPath } from './svg';
 
-export type FillInput = {
-  readonly kind: 'rough' | 'marker';
-  /** A literal CSS colour, baked into the SVG. */
-  readonly color: string;
-};
+export type FillInput =
+  | {
+      readonly kind: 'rough' | 'marker';
+      /** A literal CSS colour, baked into the SVG. */
+      readonly color: string;
+    }
+  /**
+   * An exact hatch (M6c): the element's border-box size is known, so the drawing is made at that
+   * size and each stroke ends at the outline (spec "채움", "크기 처리").
+   */
+  | {
+      readonly kind: 'hatch';
+      readonly color: string;
+      readonly width: number;
+      readonly height: number;
+      readonly hatch: HatchOptions;
+    };
+
+/** The fills drawn on the square 9-slice source. */
+export type SquareFill = Extract<FillInput, { readonly kind: 'rough' | 'marker' }>;
 
 /** How far a marker reaches past the element's left and right edges, and past its top and bottom. */
 export const MARKER_REACH = { across: 6, along: 2 } as const;
@@ -30,7 +45,7 @@ export type FillBox = {
 const generator = rough.generator();
 
 /** Park–Miller, as in the prototype: the same seed gives the same shape. */
-const seeded = (seed: number): (() => number) => {
+export const seeded = (seed: number): (() => number) => {
   let state = seed % 2147483647;
   if (state <= 0) state += 2147483646;
   return () => {
@@ -87,5 +102,5 @@ const markerFill = (box: FillBox, color: string, rough: Rough, seed: number): st
 };
 
 /** The fill's SVG elements, drawn under the border line. */
-export const fillPaths = (fill: FillInput, box: FillBox, rough: Rough, seed: number): string =>
+export const fillPaths = (fill: SquareFill, box: FillBox, rough: Rough, seed: number): string =>
   fill.kind === 'rough' ? roughFill(box, fill.color, rough, seed) : markerFill(box, fill.color, rough, seed);

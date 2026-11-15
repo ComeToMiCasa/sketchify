@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { HATCH_DEFAULTS, HATCH_PRESETS, PRESETS } from '../../src/options';
-import { drawHatchTile, hatchTileSize } from '../../src/draw/hatch';
-import { drawNineSlice, drawStrip, nineSliceGeometry, stripGeometry } from '../../src/draw/stroke';
+import { drawExactHatch, drawHatchTile, exactHatchReach, hatchTileSize } from '../../src/draw/hatch';
+import { drawNineSlice, drawStrip, geometryFor, nineSliceGeometry, stripGeometry } from '../../src/draw/stroke';
+import { FLIPS } from '../../src/draw/svg';
 import { dataUri, round1, tidyPath } from '../../src/draw/svg';
 
 describe('svg helpers', () => {
@@ -172,5 +173,109 @@ describe('hatch tile (M6b)', () => {
     const runs = edges.map((list) => list.filter((d, i) => d && list[i + 1] === true).length);
     expect(runs, 'samples in a run of differences, per edge pair').toEqual([0, 0]);
     expect(edges.flat().filter(Boolean).length / (2 * steps.length)).toBeLessThan(0.01);
+  });
+});
+
+describe('exact hatch (M6c)', () => {
+  const OPTIONS = HATCH_PRESETS.normal;
+  const exact = (overrides: Partial<Parameters<typeof drawExactHatch>[0]> = {}) =>
+    drawExactHatch({ width: 220, height: 120, radius: 0, border: 2, color: '#000', options: OPTIONS, seed: 5, at: 0, ...overrides });
+
+  /** Each stroke's outline points (absolute), from `M x y l dx dy … z`. */
+  const strokesOf = (svg: string): ReadonlyArray<ReadonlyArray<readonly [number, number]>> =>
+    [...svg.matchAll(/M([-\d.]+) ([-\d.]+)l([^z]*)z/g)].map((m) => {
+      const steps = (m[3] ?? '').trim().split(' ').map(Number);
+      const start = [Number(m[1]), Number(m[2])] as const;
+      return Array.from({ length: steps.length / 2 }, (_, i) => i).reduce<ReadonlyArray<readonly [number, number]>>(
+        (points, i) => {
+          const [x, y] = points.at(-1) ?? start;
+          return [...points, [x + (steps[2 * i] ?? 0), y + (steps[2 * i + 1] ?? 0)] as const];
+        },
+        [start],
+      );
+    });
+
+  it('draws strokes that reach past the outline by at most `over` plus half a stroke', () => {
+    const strokes = strokesOf(exact());
+    expect(strokes.length).toBeGreaterThan(15);
+    const reach = exactHatchReach(OPTIONS) + 0.2;
+    for (const [x, y] of strokes.flat()) {
+      expect(x).toBeGreaterThanOrEqual(-reach);
+      expect(y).toBeGreaterThanOrEqual(-reach);
+      expect(x).toBeLessThanOrEqual(220 + reach);
+      expect(y).toBeLessThanOrEqual(120 + reach);
+    }
+  });
+
+  it('ends each stroke somewhere else: between `over` outside and the middle of the border line', () => {
+    // How far past the top edge each stroke's top end reaches (its highest point).
+    const tops = strokesOf(exact())
+      .map((points) => Math.min(...points.map(([, y]) => y)))
+      .filter((y) => y < 30);
+    expect(tops.length).toBeGreaterThan(8);
+    const spread = Math.max(...tops) - Math.min(...tops);
+    expect(spread).toBeGreaterThan(2);
+    // The centre of a square end lies within [-over, border / 2]; its corners add half a stroke.
+    for (const y of tops) expect(y).toBeGreaterThanOrEqual(-OPTIONS.over - OPTIONS.weight);
+  });
+
+  it('keeps strokes inside rounded corners', () => {
+    const r = 30;
+    const reach = exactHatchReach(OPTIONS) + 0.2;
+    for (const [x, y] of strokesOf(exact({ radius: r })).flat()) {
+      // Distance outside the rounded outline must stay within the reach.
+      const cx = Math.min(Math.max(x, r), 220 - r);
+      const cy = Math.min(Math.max(y, r), 120 - r);
+      expect(Math.hypot(x - cx, y - cy) - r).toBeLessThanOrEqual(reach);
+    }
+  });
+
+  it('tapers the ends with `ends: taper`, and is deterministic', () => {
+    const square = exact();
+    const taper = exact({ options: { ...OPTIONS, ends: 'taper' } });
+    expect(taper).not.toBe(square);
+    expect(strokesOf(taper)[0]?.length).toBeGreaterThan(strokesOf(square)[0]?.length ?? 0);
+    expect(exact()).toBe(square);
+  });
+
+  const card = { width: 2, radius: 8, color: '#1d2433', rough: PRESETS.normal, fill: { kind: 'hatch' as const, color: '#3b82f6', width: 220, height: 120, hatch: OPTIONS } };
+
+  it('makes twelve different drawings for the neighbour slots, all slanting the same way', () => {
+    const svgs = [11, 23, 37].flatMap((seed) => FLIPS.map((flip) => drawNineSlice({ ...card, seed }, flip).svg));
+    expect(new Set(svgs).size).toBe(12);
+    for (const svg of svgs) {
+      // The hatch is not inside the (flipped) border group, and runs from lower left to upper right.
+      const hatch = /^<svg[^>]*>(<path d='[^']*' fill='#3b82f6' stroke='none'\/>)<defs>/.exec(svg)?.[1] ?? '';
+      expect(hatch).not.toBe('');
+      const [first] = strokesOf(hatch);
+      const [x0, y0] = first?.[0] ?? [0, 0];
+      const [x1, y1] = first?.[Math.floor((first.length - 1) / 2)] ?? [0, 0];
+      expect(Math.sign(x1 - x0)).toBe(-Math.sign(y1 - y0));
+    }
+  });
+
+  it('is the element size plus the outset, with the border cut into nine pieces like the browser does', () => {
+    const drawing = drawNineSlice({ ...card, seed: 11 });
+    const geometry = geometryFor(card);
+    const W = 220 + 2 * geometry.outset;
+    expect(drawing.svg).toMatch(new RegExp(`^<svg [^>]*width='${W}' height='${120 + 2 * geometry.outset}'`));
+    // The border is the plain border's square drawing (as without a hatch), at its own outset:
+    // corners 1:1, the top edge's middle stretched from the square's 120px to the element's length.
+    const plain = nineSliceGeometry(2, 8);
+    const k = plain.slice;
+    const inset = Math.round((geometry.outset - plain.outset) * 10) / 10;
+    expect(drawing.svg).toContain(`<svg x='${inset}' y='${inset}' width='${k}' height='${k}' viewBox='0 0 ${k} ${k}' preserveAspectRatio='none'>`);
+    expect(drawing.svg).toContain(
+      `<svg x='${inset + k}' y='${inset}' width='${Math.round((W - 2 * inset - 2 * k) * 10) / 10}' height='${k}' viewBox='${k} 0 120 ${k}' preserveAspectRatio='none'>`,
+    );
+    // The corner slice of the placement holds the whole border corner.
+    expect(geometry.slice).toBeCloseTo(inset + k, 5);
+    expect((drawing.svg.match(/<use href='#b'\/>/g) ?? []).length).toBe(8);
+  });
+
+  it('has no border pieces without a border', () => {
+    const svg = drawNineSlice({ ...card, width: 0, color: 'transparent', seed: 11 }).svg;
+    expect(svg).not.toContain('<use');
+    expect(svg).toContain("fill='#3b82f6'");
   });
 });

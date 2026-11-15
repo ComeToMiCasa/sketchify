@@ -79,6 +79,7 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
     };
 
     const filled = (request: DrawRequest): boolean => request.kind === 'nine-slice' && request.fill !== undefined;
+    const exactOf = (request: DrawRequest) => (request.kind === 'nine-slice' && request.fill?.kind === 'hatch' ? { exact: true } : {});
     const hatch = hatchOf(resolved.value);
     const tileFor = (color: string | undefined): HatchLook => {
       if (color === undefined) return { kind: 'none' };
@@ -92,7 +93,7 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
     const lookOf = (outcome: Emission['outcome'], mix: boolean): Look => {
       switch (outcome.kind) {
         case 'draw':
-          return { kind: 'image', image: imageFor(outcome.request, mix), filled: filled(outcome.request), ...extras(outcome) };
+          return { kind: 'image', image: imageFor(outcome.request, mix), filled: filled(outcome.request), ...exactOf(outcome.request), ...extras(outcome) };
         case 'plain':
           return { kind: 'plain', colors: outcome.colors, ...extras(outcome) };
         case 'paint':
@@ -117,7 +118,9 @@ const sketchify = (options: SketchifyOptions = {}): Plugin => ({
       // Conditions (dark mode, …) whose variables change this drawing: right after it.
       if (outcome.kind === 'draw') {
         outcome.variants.forEach((variant) => {
-          const look: Look = variant.request ? { kind: 'image', image: imageFor(variant.request, mix), filled: filled(variant.request) } : { kind: 'none' };
+          const look: Look = variant.request
+            ? { kind: 'image', image: imageFor(variant.request, mix), filled: filled(variant.request), ...exactOf(variant.request) }
+            : { kind: 'none' };
           insert(rule.rule, [...emission.conditions, ...variant.conditions], emission.selector, look, important, false);
         });
       }

@@ -193,3 +193,45 @@ export const parseBackgroundShorthand = (value: string): Background => {
 
 /** `background-image`: anything but `none` paints an image. */
 export const paintsImage = (value: string): boolean => value.trim().toLowerCase() !== 'none';
+
+// --- Sizes (M6c exact hatch) -------------------------------------------------------
+
+/** A `width`, `height` or `padding` value: px, or anything else (`auto`, `%`, `em`, `calc()`). */
+export const parseLength = (value: string): Width => {
+  if (hasVar(value) || isGlobal(value)) return UNKNOWN;
+  const px = lengthPx(value.trim().toLowerCase());
+  return px === undefined ? UNKNOWN : { kind: 'px', px };
+};
+
+/** `padding` per side (1–4 values). */
+export const parsePadding = (value: string): Readonly<Record<Side, Width>> =>
+  parseBoxValue<Width>(value, parseLength, UNKNOWN) ?? { top: UNKNOWN, right: UNKNOWN, bottom: UNKNOWN, left: UNKNOWN };
+
+export type BoxSizing = { readonly kind: 'keyword'; readonly keyword: 'border-box' | 'content-box' } | { readonly kind: 'unknown' };
+
+/** `box-sizing`; `inherit` and other keywords are unknown at build time. */
+export const parseBoxSizing = (value: string): BoxSizing => {
+  const lower = value.trim().toLowerCase();
+  return lower === 'border-box' || lower === 'content-box' ? { kind: 'keyword', keyword: lower } : UNKNOWN;
+};
+
+/** `--sketch-size: W H` (or `W` for a square): the border-box size in px, unitless or `px`. */
+export type SizeHint = { readonly kind: 'size'; readonly width: number; readonly height: number } | { readonly kind: 'invalid'; readonly css: string };
+
+const hintNumber = (word: string): number | undefined => {
+  const dimension = valueParser.unit(word);
+  if (!dimension) return undefined;
+  const unit = dimension.unit.toLowerCase();
+  const number = Number(dimension.number);
+  return (unit === '' || unit === 'px') && Number.isFinite(number) && number > 0 ? number : undefined;
+};
+
+export const parseSizeHint = (value: string): SizeHint => {
+  const invalid: SizeHint = { kind: 'invalid', css: value.trim() };
+  const nodes = splitValue(value);
+  if (!nodes || nodes.length < 1 || nodes.length > 2 || nodes.some((node) => node.type !== 'word')) return invalid;
+  const numbers = nodes.map((node) => hintNumber(node.value));
+  const width = numbers[0];
+  const height = numbers.length === 2 ? numbers[1] : width;
+  return width === undefined || height === undefined ? invalid : { kind: 'size', width, height };
+};

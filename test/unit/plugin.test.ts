@@ -458,3 +458,88 @@ describe('hatch fill', () => {
     expect(await transform('.a { background: url(a.png) #eee; --sketch-fill: hatch; }\n')).toBe('.a { background: url(a.png) #eee; }\n');
   });
 });
+
+describe('exact hatch (M6c)', () => {
+  const CARD = 'border: 2px solid #000; border-radius: 8px; background: #3b82f6; --sketch-fill: hatch;';
+  const EXACT = /background-color: transparent; background-image: none; SLOTS; border-image: var\(--sk\) [\d.]+ fill \/ [\d.]+px \/ [\d.]+px stretch;/;
+
+  it('draws the hatch into the border drawing when the size is known (border-box)', async () => {
+    const out = await transform(`.a { width: 220px; height: 120px; box-sizing: border-box; ${CARD} }\n`);
+    expect(shape(out)).toMatch(EXACT);
+    expect(out).not.toContain('--skh');
+    expect(out).not.toContain('background-size');
+    // The drawing is the element's size plus the outset on both sides.
+    const outset = Number(/\/ ([\d.]+)px stretch/.exec(out)?.[1]);
+    expect(out).toContain(`width='${220 + 2 * outset}' height='${120 + 2 * outset}'`);
+  });
+
+  it('adds padding and border widths with content-box (the default)', async () => {
+    const out = await transform('.a { width: 200px; height: 100px; padding: 10px 6px; border: 2px solid #000; background: #3b82f6; --sketch-fill: hatch; }\n');
+    const outset = Number(/\/ ([\d.]+)px stretch/.exec(out)?.[1]);
+    expect(out).toContain(`width='${200 + 12 + 4 + 2 * outset}' height='${100 + 20 + 4 + 2 * outset}'`);
+  });
+
+  it('reads box-sizing from a universal rule in the same file', async () => {
+    const out = await transform(`*, *::before, *::after { box-sizing: border-box; }\n.a { width: 220px; height: 120px; padding: 10px; ${CARD} }\n`);
+    const outset = Number(/\/ ([\d.]+)px stretch/.exec(out)?.[1]);
+    expect(out).toContain(`width='${220 + 2 * outset}' height='${120 + 2 * outset}'`);
+  });
+
+  it('takes the size from --sketch-size first, and removes the hint', async () => {
+    const out = await transform(`.a { width: 50%; min-height: 80px; --sketch-size: 240 90; ${CARD} }\n`);
+    const outset = Number(/\/ ([\d.]+)px stretch/.exec(out)?.[1]);
+    expect(out).toContain(`width='${240 + 2 * outset}' height='${90 + 2 * outset}'`);
+    expect(out).not.toContain('--sketch-size');
+    const square = await transform(`.a { --sketch-size: 100px; ${CARD} }\n`);
+    expect(square).toMatch(/width='([\d.]+)' height='\1'/);
+  });
+
+  it('an invalid --sketch-size is an error', async () => {
+    for (const value of ['1x', '0 10', '10 20 30', '10% 20px', 'auto']) {
+      expect(await errorOf(`.a { --sketch-size: ${value}; ${CARD} }`), value).toContain('`--sketch-size`에는');
+    }
+  });
+
+  it('falls back to the repeated hatch when the size is unknown, too big, too small or the border is one-sided', async () => {
+    const tile = /background-image: var\(--sk-[0-9a-f]{8}\); background-size: 192px 192px;/;
+    const cases = [
+      `.a { width: 50%; height: 120px; ${CARD} }`,
+      `.a { width: 220px; ${CARD} }`,
+      `.a { width: 220px; height: 120px; padding: 1em; ${CARD} }`,
+      `.a { width: 220px; height: 120px; box-sizing: inherit; ${CARD} }`,
+      `.a { width: 500px; height: 400px; box-sizing: border-box; ${CARD} }`,
+      `.a { width: 10px; height: 10px; box-sizing: border-box; ${CARD} }`,
+      '.a { width: 220px; height: 120px; border-bottom: 2px solid #000; background: #3b82f6; --sketch-fill: hatch; }',
+    ];
+    for (const css of cases) expect(await transform(`${css}\n`), css).toMatch(tile);
+  });
+
+  it('works without a border: the strokes end around the element edge', async () => {
+    const out = shape(await transform('.a { width: 200px; height: 100px; background-color: #3b82f6; --sketch-fill: hatch; }\n'));
+    expect(out).toMatch(/border-image: var\(--sk\) [\d.]+ fill \/ [\d.]+px \/ [\d.]+px stretch;/);
+    expect(out).not.toContain('background-size');
+  });
+
+  it('a size modifier and a hover colour get their own drawings', async () => {
+    const out = shape(
+      await transform(
+        `.a { width: 220px; height: 120px; box-sizing: border-box; ${CARD} }\n.a.a--wide { width: 300px; }\n.a:hover { background-color: #16a34a; }\n`,
+      ),
+    );
+    expect(out).toMatch(/\.a\.a--wide \{ width: 300px; border-color: transparent; background-color: transparent; background-image: none;/);
+    expect(out).toMatch(/\.a:hover \{ background-color: #16a34a; border-color: transparent; background-color: transparent; background-image: none;/);
+    // The combination: wide and hovered.
+    expect(out).toMatch(/\.a(\.a--wide:hover|:hover\.a--wide) \{[^}]*border-image: var\(--sk\)/);
+  });
+
+  it('a lone size rule outside the family is not part of it', async () => {
+    // `.wide` may not be on the same element as `.a`: the 220px drawing stays (and stretches if it is).
+    const out = await transform(`.a { width: 220px; height: 120px; box-sizing: border-box; ${CARD} }\n.wide { width: 300px; }\n`);
+    expect(out).toContain('.wide { width: 300px; }\n');
+  });
+
+  it('is the same drawing every build', async () => {
+    const css = `.a { width: 220px; height: 120px; ${CARD} }\n`;
+    expect(await transform(css)).toBe(await transform(css));
+  });
+});

@@ -5,7 +5,11 @@ import {
   parseBorderRadius,
   parseBorderShorthand,
   parseColor,
+  parseBoxSizing,
   parseCornerRadius,
+  parseLength,
+  parsePadding,
+  parseSizeHint,
   parseWidth,
 } from '../../src/read/values';
 
@@ -117,5 +121,35 @@ describe('parseBackgroundShorthand', () => {
 
   it('cannot split values with var()', () => {
     expect(parseBackgroundShorthand('var(--fill)')).toEqual({ color: { kind: 'unknown', css: 'var(--fill)' }, image: false });
+  });
+});
+
+describe('sizes (M6c)', () => {
+  it('reads px lengths; anything else is unknown', () => {
+    expect(parseLength('220px')).toEqual({ kind: 'px', px: 220 });
+    expect(parseLength('0')).toEqual({ kind: 'px', px: 0 });
+    for (const value of ['auto', '50%', '10em', 'calc(10px + 2px)', 'var(--w)', 'inherit', 'fit-content', 'thin']) {
+      expect(parseLength(value), value).toEqual({ kind: 'unknown' });
+    }
+  });
+
+  it('expands padding to the four sides', () => {
+    expect(parsePadding('10px 6px')).toEqual({ top: { kind: 'px', px: 10 }, right: { kind: 'px', px: 6 }, bottom: { kind: 'px', px: 10 }, left: { kind: 'px', px: 6 } });
+    expect(parsePadding('1em 0').top).toEqual({ kind: 'unknown' });
+  });
+
+  it('reads box-sizing; inherit is unknown at build time', () => {
+    expect(parseBoxSizing('border-box')).toEqual({ kind: 'keyword', keyword: 'border-box' });
+    expect(parseBoxSizing(' Content-Box ')).toEqual({ kind: 'keyword', keyword: 'content-box' });
+    expect(parseBoxSizing('inherit')).toEqual({ kind: 'unknown' });
+  });
+
+  it('reads --sketch-size: W H, W (a square), unitless or px, above 0', () => {
+    expect(parseSizeHint('240 160')).toEqual({ kind: 'size', width: 240, height: 160 });
+    expect(parseSizeHint('240px 160.5px')).toEqual({ kind: 'size', width: 240, height: 160.5 });
+    expect(parseSizeHint('96')).toEqual({ kind: 'size', width: 96, height: 96 });
+    for (const value of ['', '0 10', '-5 10', '10 abc', '10 20 30', '10% 20px', '1em', 'auto', '10,20']) {
+      expect(parseSizeHint(value).kind, value).toBe('invalid');
+    }
   });
 });

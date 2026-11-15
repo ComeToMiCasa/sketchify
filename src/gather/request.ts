@@ -1,6 +1,6 @@
 // From a resolved border state to a drawing request (spec "그리는 테두리와 그대로 두는 테두리"). Pure.
-import type { LineSide, NineSliceInput, StripInput } from '../draw/stroke';
-import type { ResolvedOptions } from '../options';
+import { type LineSide, type NineSliceInput, type StripInput, exactFits, geometryFor } from '../draw/stroke';
+import { type ResolvedOptions, hatchOf } from '../options';
 import type { BorderState, Declared } from '../read/collect';
 import type { FillInput } from '../draw/fill';
 import { CORNERS, SIDES, type Color, type Corner, type Radius, type Side, type Style, type Width, isCurrentColor } from '../read/values';
@@ -107,7 +107,7 @@ const isCurrent = (color: Declared<Color>): boolean => color.kind !== 'unset' &&
 const known: Color = { kind: 'literal', css: '#000' };
 
 /** The fill the state asks for (`--sketch-fill: rough | marker`), if any. */
-const fillMode = (border: BorderState): FillInput['kind'] | undefined =>
+const fillMode = (border: BorderState): 'rough' | 'marker' | undefined =>
   border.fill.kind === 'mode' && (border.fill.mode === 'rough' || border.fill.mode === 'marker') ? border.fill.mode : undefined;
 
 /**
@@ -116,7 +116,10 @@ const fillMode = (border: BorderState): FillInput['kind'] | undefined =>
  * A fill goes with a four-sided border or no border; with anything else (a one-sided line,
  * dashes, a large radius) nothing is drawn and the original CSS shows.
  */
-export const paintRequestFor = (border: BorderState, options: ResolvedOptions): DrawRequest | undefined => {
+export const paintRequestFor = (border: BorderState, options: ResolvedOptions): DrawRequest | undefined =>
+  exactHatchRequestFor(border, options) ?? fillRequestFor(border, options);
+
+const fillRequestFor = (border: BorderState, options: ResolvedOptions): DrawRequest | undefined => {
   const mode = fillMode(border);
   const color = border.background.color.kind === 'literal' ? border.background.color.css : undefined;
   // A fill in currentColor cannot be baked into the SVG: nothing is drawn, and the caller reports it.
@@ -132,6 +135,71 @@ export const paintRequestFor = (border: BorderState, options: ResolvedOptions): 
   return { kind: 'nine-slice', width: 0, radius, color: 'transparent', rough: options.rough, seed: SEEDS[0], fill };
 };
 
+
+// --- Exact hatch (M6c) ---------------------------------------------------------------
+
+/**
+ * Elements bigger than this (px²) get the repeated hatch even when their size is known: an exact
+ * hatch draws every stroke, and its twelve neighbour variants grow with the area. Measured
+ * (2026-11-15, one colour, all 12 variants, brotli): normal 480×320 ≈ 17KB, fine ≈ 43KB, bold
+ * ≈ 13KB; 640×480 would be 27KB / 68KB / 20KB. The repeated tile is about 3KB.
+ */
+export const MAX_EXACT_AREA = 480 * 320;
+
+const px = (value: Declared<Width>): number | undefined => (value.kind === 'px' ? value.px : undefined);
+
+/** A side's border width as the box model counts it: no line (no style, `none`, `hidden`) is 0. */
+const borderWidthOf = (border: BorderState, side: Side): number | undefined => {
+  const { width, style } = border.sides[side];
+  if (style.kind === 'unset' || (style.kind === 'keyword' && (style.keyword === 'none' || style.keyword === 'hidden'))) return 0;
+  if (style.kind === 'unknown') return undefined;
+  // A side with a style but no width has the initial `medium` (3px), as CSS does.
+  return width.kind === 'unset' ? 3 : px(width);
+};
+
+/**
+ * The element's border-box size (spec "크기 처리"), or undefined when the CSS does not say it in px.
+ * `--sketch-size` wins. Otherwise px `width` and `height`; with `box-sizing: content-box` (the
+ * default) the px paddings (unset: 0) and border widths are added.
+ */
+export const sizeOf = (border: BorderState): { readonly width: number; readonly height: number } | undefined => {
+  const { hint, width, height, padding, boxSizing } = border.size;
+  if (hint.kind === 'size') return { width: hint.width, height: hint.height };
+  const w = px(width);
+  const h = px(height);
+  if (w === undefined || h === undefined) return undefined;
+  if (boxSizing.kind === 'keyword' && boxSizing.keyword === 'border-box') return { width: w, height: h };
+  if (boxSizing.kind === 'unknown') return undefined;
+  const extra = SIDES.map((side) => {
+    const pad = padding[side].kind === 'unset' ? 0 : px(padding[side]);
+    const line = borderWidthOf(border, side);
+    return pad === undefined || line === undefined ? undefined : pad + line;
+  });
+  const [top, right, bottom, left] = extra;
+  if (top === undefined || right === undefined || bottom === undefined || left === undefined) return undefined;
+  return { width: w + left + right, height: h + top + bottom };
+};
+
+/**
+ * An exact hatch (spec "채움", M6c): `--sketch-fill: hatch` on an element of known size, with a
+ * four-sided drawn border or no border, a literal colour, no background image, not too big, and big
+ * enough for its corner slices. Anything else gets the repeated hatch (M6b) or nothing.
+ */
+const exactHatchRequestFor = (border: BorderState, options: ResolvedOptions): NineSliceRequest | undefined => {
+  if (!asksForHatch(border) || border.background.image || border.background.color.kind !== 'literal') return undefined;
+  if (border.unsupported || border.hasBorderImage) return undefined;
+  const size = sizeOf(border);
+  if (!size || size.width * size.height > MAX_EXACT_AREA) return undefined;
+  const fill: FillInput = { kind: 'hatch', color: border.background.color.css, width: size.width, height: size.height, hatch: hatchOf(options) };
+  const box = requestFor(border, options);
+  const radius = uniformRadius(border);
+  const request: NineSliceRequest | undefined = box
+    ? { ...box, fill }
+    : SIDES.every((side) => sideLine(border, side).kind === 'none') && radius !== undefined && radius <= MAX_RADIUS
+      ? { kind: 'nine-slice', width: 0, radius, color: 'transparent', rough: options.rough, seed: SEEDS[0], fill }
+      : undefined;
+  return request && exactFits(geometryFor(request), size.width, size.height) ? request : undefined;
+};
 
 /** Whether the border (or its fill) could be drawn if its `currentColor` parts had a known colour. */
 export const blockedByCurrentColor = (border: BorderState, options: ResolvedOptions): boolean => {
@@ -157,9 +225,14 @@ export type HatchPaint = { readonly color: string };
 
 const asksForHatch = (border: BorderState): boolean => border.fill.kind === 'mode' && border.fill.mode === 'hatch';
 
-/** The hatch the state asks for: `--sketch-fill: hatch`, a literal background colour and no background image. */
-export const hatchFor = (border: BorderState): HatchPaint | undefined =>
-  asksForHatch(border) && !border.background.image && border.background.color.kind === 'literal' ? { color: border.background.color.css } : undefined;
+/**
+ * The repeated hatch the state asks for: `--sketch-fill: hatch`, a literal background colour and
+ * no background image, on an element that does not get an exact hatch (M6c).
+ */
+export const hatchFor = (border: BorderState, options: ResolvedOptions): HatchPaint | undefined =>
+  asksForHatch(border) && !border.background.image && border.background.color.kind === 'literal' && !exactHatchRequestFor(border, options)
+    ? { color: border.background.color.css }
+    : undefined;
 
 /** The state asks for a hatch whose colour is currentColor. */
 export const hatchInCurrentColor = (border: BorderState): boolean =>

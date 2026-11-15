@@ -163,6 +163,14 @@ export const invalidFillError = (decl: Declaration): Diagnostic => ({
   message: `\`--sketch-fill\`에는 \`solid\`, \`rough\`, \`marker\`, \`hatch\` 중 하나를 쓸 수 있습니다. 받은 값: \`${decl.value}\`.`,
 });
 
+export const invalidSizeError = (decl: Declaration): Diagnostic => ({
+  severity: 'error',
+  node: decl,
+  message:
+    `\`--sketch-size\`에는 요소의 테두리 상자(border-box) 크기를 \`가로 세로\`(예: \`240 160\` 또는 \`240px 160px\`)나, 정사각형이면 \`가로\` 하나로 씁니다. ` +
+    `0보다 큰 px 값이어야 합니다. 받은 값: \`${decl.value}\`.`,
+});
+
 export const currentFillColorError = (decl: Declaration | undefined): Diagnostic => ({
   severity: 'error',
   node: decl,

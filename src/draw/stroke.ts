@@ -2,7 +2,8 @@
 import rough from 'roughjs';
 import type { Rough } from '../options';
 import { type FillInput, MARKER_REACH, fillPaths } from './fill';
-import { type Flip, dataUri, flipTransform, round1, svgDocument, tidyPath } from './svg';
+import { drawExactHatch, exactHatchReach } from './hatch';
+import { FLIPS, type Flip, dataUri, flipTransform, round1, svgDocument, tidyPath } from './svg';
 
 export type NineSliceInput = {
   /** Border width in px; 0 for a fill without a border. */
@@ -73,9 +74,42 @@ const fillOnlyGeometry = (radius: number, reach: number): NineSliceGeometry => {
   return { margin, slice, size: 2 * slice + EDGE, outset: margin };
 };
 
-/** The geometry for a request: a marker fill needs room past the element. */
-export const geometryFor = (input: Pick<NineSliceInput, 'width' | 'radius' | 'fill'>): NineSliceGeometry =>
-  nineSliceGeometry(input.width, input.radius, input.fill?.kind === 'marker' ? MARKER_REACH.across : 0);
+/**
+ * The geometry for a request: a marker fill needs room past the element, and so does an exact
+ * hatch (its strokes end up to `over` past the outline). Without a border, an exact hatch's corner
+ * slices still hold the rounded corner, so a stretched drawing keeps its corners round.
+ */
+export const geometryFor = (input: Pick<NineSliceInput, 'width' | 'radius' | 'fill'>): NineSliceGeometry => {
+  const fill = input.fill;
+  if (fill?.kind === 'hatch') {
+    // Whole pixels, so the drawing starts on the pixel grid like the plain border's (same anti-aliasing).
+    const reach = Math.ceil(exactHatchReach(fill.hatch));
+    if (input.width > 0) {
+      // The border is the plain border's drawing, set `inset` in from the drawing's edge; the
+      // corner slices hold its corners whole (see drawExactNineSlice).
+      const plain = nineSliceGeometry(input.width, input.radius);
+      const outer = nineSliceGeometry(input.width, input.radius, reach);
+      return { ...outer, slice: round1(outer.outset - plain.outset + plain.slice) };
+    }
+    const margin = reach + 2;
+    const slice = margin + Math.max(input.radius, 3);
+    return { margin, slice, size: 2 * slice + EDGE, outset: margin };
+  }
+  return nineSliceGeometry(input.width, input.radius, fill?.kind === 'marker' ? MARKER_REACH.across : 0);
+};
+
+/** The exact-size drawing's width and height: the border box plus the outset on each side. */
+export const exactSize = (geometry: NineSliceGeometry, width: number, height: number): readonly [number, number] => [
+  round1(width + 2 * geometry.outset),
+  round1(height + 2 * geometry.outset),
+];
+
+/**
+ * Whether an exact-size drawing can be placed 1:1: each side is longer than its two corner slices.
+ * A smaller element would make the browser shrink the whole drawing.
+ */
+export const exactFits = (geometry: NineSliceGeometry, width: number, height: number): boolean =>
+  exactSize(geometry, width, height).every((side) => side >= 2 * geometry.slice + 1);
 
 const roundedRect = (x: number, y: number, w: number, h: number, r: number): string =>
   `M${x + r} ${y}H${x + w - r}Q${x + w} ${y} ${x + w} ${y + r}V${y + h - r}Q${x + w} ${y + h} ${x + w - r} ${y + h}H${x + r}Q${x} ${y + h} ${x} ${y + h - r}V${y + r}Q${x} ${y} ${x + r} ${y}Z`;
@@ -85,9 +119,9 @@ const generator = rough.generator();
 /** Rough.js draws each line twice, so one pass is thinner to keep the visible weight (spec "선 두께"). */
 const STROKE_SCALE = 0.85;
 
-export const drawNineSlice = (input: NineSliceInput, flip: Flip = 'none'): NineSlice => {
-  const geometry = geometryFor(input);
-  const { margin, size, outset } = geometry;
+/** The border line drawn on the square source, as one `<g>`. */
+const borderLines = (input: NineSliceInput, geometry: NineSliceGeometry, transform: string): string => {
+  const { margin, size } = geometry;
   const side = size - 2 * margin;
   const options = {
     stroke: input.color,
@@ -97,22 +131,67 @@ export const drawNineSlice = (input: NineSliceInput, flip: Flip = 'none'): NineS
     bowing: input.rough.bowing,
     maxRandomnessOffset: input.rough.maxRandomnessOffset,
   };
+  const drawable =
+    input.radius > 0 ? generator.path(roundedRect(margin, margin, side, side, input.radius), options) : generator.rectangle(margin, margin, side, side, options);
+  const paths = generator
+    .toPaths(drawable)
+    .map((path) => `<path d='${tidyPath(path.d)}'/>`)
+    .join('');
+  return `<g${transform} fill='none' stroke='${input.color}' stroke-width='${round1(input.width * STROKE_SCALE)}' stroke-linecap='round' stroke-linejoin='round'>${paths}</g>`;
+};
+
+/**
+ * An exact hatch (M6c) at the element's size. The border is the square drawing cut into the same
+ * nine pieces the browser would make (corners as they are, edges stretched), so it looks like the
+ * border of an element of unknown size. The hatch goes under it. Flips mirror the border only: a
+ * mirrored hatch would slant the other way. Each flip draws its own hatch instead.
+ */
+const drawExactNineSlice = (input: NineSliceInput, fill: Extract<FillInput, { readonly kind: 'hatch' }>, flip: Flip): NineSlice => {
+  const geometry = geometryFor(input);
+  const { outset } = geometry;
+  const [W, H] = exactSize(geometry, fill.width, fill.height);
+  // The border without a fill: the same square drawing an element of unknown size gets, placed
+  // where the browser would put it (its own outset from the border box).
+  const plain = nineSliceGeometry(input.width, input.radius);
+  const { size: S, slice: k } = plain;
+  const inset = round1(outset - plain.outset);
+  const hatch = drawExactHatch({
+    width: fill.width,
+    height: fill.height,
+    radius: input.radius,
+    border: input.width,
+    color: fill.color,
+    options: fill.hatch,
+    seed: input.seed * FLIPS.length + FLIPS.indexOf(flip) + 1,
+    at: outset,
+  });
+  // Source and target of each piece along one axis: [source start, source length, target start, target length].
+  const cuts = (total: number): ReadonlyArray<readonly [number, number, number, number]> => [
+    [0, k, inset, k],
+    [k, S - 2 * k, round1(inset + k), round1(total - 2 * inset - 2 * k)],
+    [S - k, k, round1(total - inset - k), k],
+  ];
+  const pieces = cuts(W).flatMap(([sx, sw, tx, tw], col) =>
+    cuts(H).flatMap(([sy, sh, ty, th], row) =>
+      col === 1 && row === 1
+        ? []
+        : [`<svg x='${tx}' y='${ty}' width='${tw}' height='${th}' viewBox='${sx} ${sy} ${sw} ${sh}' preserveAspectRatio='none'><use href='#b'/></svg>`],
+    ),
+  );
+  const border = input.width > 0 ? `<defs><g id='b'>${borderLines(input, plain, flipTransform(flip, S))}</g></defs>${pieces.join('')}` : '';
+  const svg = svgDocument(W, H, `${hatch}${border}`);
+  return { ...geometry, svg, url: dataUri(svg) };
+};
+
+export const drawNineSlice = (input: NineSliceInput, flip: Flip = 'none'): NineSlice => {
+  if (input.fill?.kind === 'hatch') return drawExactNineSlice(input, input.fill, flip);
+  const geometry = geometryFor(input);
+  const { margin, size, outset } = geometry;
   const transform = flipTransform(flip, size);
   const fill = input.fill
     ? `<g${transform}>${fillPaths(input.fill, { size, edge: outset, margin, radius: input.radius }, input.rough, input.seed + 100)}</g>`
     : '';
-  const line = () => {
-    const drawable =
-      input.radius > 0
-        ? generator.path(roundedRect(margin, margin, side, side, input.radius), options)
-        : generator.rectangle(margin, margin, side, side, options);
-    const paths = generator
-      .toPaths(drawable)
-      .map((path) => `<path d='${tidyPath(path.d)}'/>`)
-      .join('');
-    return `<g${transform} fill='none' stroke='${input.color}' stroke-width='${round1(input.width * STROKE_SCALE)}' stroke-linecap='round' stroke-linejoin='round'>${paths}</g>`;
-  };
-  const svg = svgDocument(size, size, `${fill}${input.width > 0 ? line() : ''}`);
+  const svg = svgDocument(size, size, `${fill}${input.width > 0 ? borderLines(input, geometry, transform) : ''}`);
   return { ...geometry, svg, url: dataUri(svg) };
 };
 

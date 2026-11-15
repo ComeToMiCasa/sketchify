@@ -13,7 +13,13 @@ import {
   type Style,
   type Width,
   type Background,
+  type BoxSizing,
+  type SizeHint,
   parseBackgroundShorthand,
+  parseBoxSizing,
+  parseLength,
+  parsePadding,
+  parseSizeHint,
   paintsImage,
   parseBorderRadius,
   parseBorderShorthand,
@@ -46,6 +52,18 @@ export type BorderState = {
   readonly background: { readonly color: Declared<Color>; readonly image: boolean; readonly important: boolean };
   /** `--sketch-fill`, or `unset` (solid: the original background stays). */
   readonly fill: Declared<FillMode>;
+  /** What the element's size depends on (M6c exact hatch). */
+  readonly size: SizeState;
+};
+
+/** The declarations that give an element's border-box size (spec "크기 처리"). */
+export type SizeState = {
+  readonly width: Declared<Width>;
+  readonly height: Declared<Width>;
+  readonly padding: Readonly<Record<Side, Declared<Width>>>;
+  readonly boxSizing: Declared<BoxSizing>;
+  /** `--sketch-size`. */
+  readonly hint: Declared<SizeHint>;
 };
 
 /** `--sketch-fill` (spec "채움"). `invalid` keeps the text for the error message. */
@@ -105,6 +123,13 @@ export const EMPTY_BORDER: BorderState = {
   important: false,
   background: { color: UNSET, image: false, important: false },
   fill: UNSET,
+  size: {
+    width: UNSET,
+    height: UNSET,
+    padding: { top: UNSET, right: UNSET, bottom: UNSET, left: UNSET },
+    boxSizing: UNSET,
+    hint: UNSET,
+  },
 };
 
 type Part = keyof SideState;
@@ -125,6 +150,32 @@ const SIDE_PROP = /^border-(top|right|bottom|left)$/;
 const SIDE_PART_PROP = /^border-(top|right|bottom|left)-(width|style|color)$/;
 const CORNER_PROP = /^border-(top-left|top-right|bottom-right|bottom-left)-radius$/;
 const LOGICAL_PROP = /^border-(block|inline)(-|$)|^border-(start|end)-(start|end)-radius$/;
+
+const PADDING_SIDE = /^padding-(top|right|bottom|left)$/;
+/** Logical sizes and paddings: their physical side depends on the writing mode, so the size is unknown. */
+const LOGICAL_SIZE = /^(inline-size|block-size|padding-(block|inline)(-start|-end)?)$/;
+
+/** Declarations that change an element's border-box size, as the exact hatch reads it (M6c). */
+export const isSizeProp = (prop: string): boolean => {
+  const p = prop.toLowerCase();
+  return p === 'width' || p === 'height' || p === 'padding' || PADDING_SIDE.test(p) || p === 'box-sizing' || p === '--sketch-size' || LOGICAL_SIZE.test(p);
+};
+
+const UNKNOWN_LENGTH: Width = { kind: 'unknown' };
+
+const applySize = (state: BorderState, prop: string, value: string): BorderState => {
+  const size = state.size;
+  const set = (patch: Partial<SizeState>): BorderState => ({ ...state, size: { ...size, ...patch } });
+  if (prop === 'width') return set({ width: parseLength(value) });
+  if (prop === 'height') return set({ height: parseLength(value) });
+  if (prop === 'padding') return set({ padding: parsePadding(value) });
+  if (prop === 'box-sizing') return set({ boxSizing: parseBoxSizing(value) });
+  if (prop === '--sketch-size') return set({ hint: parseSizeHint(value) });
+  const side = PADDING_SIDE.exec(prop)?.[1];
+  if (side) return set({ padding: { ...size.padding, [side]: parseLength(value) } });
+  if (prop === 'inline-size' || prop === 'block-size') return set({ width: UNKNOWN_LENGTH, height: UNKNOWN_LENGTH });
+  return set({ padding: { top: UNKNOWN_LENGTH, right: UNKNOWN_LENGTH, bottom: UNKNOWN_LENGTH, left: UNKNOWN_LENGTH } });
+};
 
 /** Background declarations a fill reads (M6). */
 export const isBackgroundProp = (prop: string): boolean => /^background(-color|-image)?$/i.test(prop);
@@ -159,6 +210,7 @@ export const applyDeclaration = (state: BorderState, prop: string, value: string
   const marked = isBorderLineProp(p) || p === 'border-radius' || CORNER_PROP.test(p) ? { ...state, important: state.important || important } : state;
 
   if (p === '--sketch-fill') return { ...state, fill: parseFillMode(value) };
+  if (isSizeProp(p)) return applySize(state, p, value);
   if (isBackgroundProp(p)) return applyBackground(state, p, value, important);
   if (p.startsWith('border-image')) return { ...marked, hasBorderImage: true };
   if (LOGICAL_PROP.test(p)) return { ...marked, unsupported: true };
@@ -251,9 +303,10 @@ export const factsOfRule = (rule: Rule, placed: Omit<Placed, 'rule'> = { selecto
   };
 };
 
-/** Whether the rule matters to borders: border declarations, variables (which borders may read) or `--sketch`. */
+/** Whether the rule matters to borders: border, background or size declarations, variables (which borders may read) or `--sketch`. */
 const mattersToBorders = (facts: RuleFacts): boolean =>
-  facts.sketch.kind !== 'none' || facts.decls.some((decl) => isBorderProp(decl.prop) || isBackgroundProp(decl.prop) || decl.prop.startsWith('--'));
+  facts.sketch.kind !== 'none' ||
+  facts.decls.some((decl) => isBorderProp(decl.prop) || isBackgroundProp(decl.prop) || isSizeProp(decl.prop) || decl.prop.startsWith('--'));
 
 /** Facts for every style rule that matters to borders, in source order. `@keyframes` are skipped. */
 export const collect = (root: Root): Result<ReadonlyArray<RuleFacts>> => ({

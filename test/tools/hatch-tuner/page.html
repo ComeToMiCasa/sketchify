@@ -30,6 +30,8 @@
   .big { width: 100%; max-width: 640px; height: 320px; box-sizing: border-box; border: 1px solid var(--ink); }
   .text { max-width: 640px; padding: 16px; border: 1px solid var(--ink); }
   .text p { margin: 0; color: var(--ink); background: #fff; display: inline; }
+  .exact { width: 220px; height: 120px; box-sizing: border-box; border: 2px solid transparent; border-radius: 12px; }
+  h2 { font-size: 14px; margin: 0; color: var(--muted); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -39,6 +41,7 @@
     <p>플러그인의 빗금 그리기를 그대로 써서 보여줍니다. 값을 정하면 아래 코드를 <code>src/options.ts</code>의 <code>HATCH_PRESETS</code>에 붙이세요.</p>
     <div id="presets"></div>
     <div id="sliders"></div>
+    <label class="row">선 끝 모양 ends (크기를 아는 요소) <select id="ends"><option value="square">square (네모)</option><option value="taper">taper (가늘게)</option></select></label>
     <label class="row">색 <input type="color" id="color" value="#3b82f6"></label>
     <div id="errors"></div>
     <div id="info"></div>
@@ -48,6 +51,13 @@
     <pre id="option"></pre>
   </section>
   <section class="preview">
+    <h2>크기를 아는 요소 (M6c): 선마다 끝이 다름</h2>
+    <div class="cards">
+      <div class="exact"></div>
+      <div class="exact"></div>
+      <div class="exact"></div>
+    </div>
+    <h2>크기를 모르는 요소 (M6b): 반복 무늬</h2>
     <div class="cards">
       <div class="card hatched"></div>
       <div class="bare hatched"></div>

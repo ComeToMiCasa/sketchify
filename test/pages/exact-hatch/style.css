@@ -1,0 +1,30 @@
+/* M6c example: exact hatch on elements of known size (spec "채움", "크기 처리").
+   Each stroke ends between the middle of the border line and 4px outside it.
+   Hatch blue #3b82f6 (dark: amber #f59e0b), hover green #16a34a. */
+:root { --hatch: #3b82f6; }
+@media (prefers-color-scheme: dark) {
+  :root { --hatch: #f59e0b; }
+}
+
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; background: #ffffff; }
+.page { width: 760px; margin: 0 auto; padding: 24px; box-sizing: border-box; display: grid; gap: 28px; }
+.row { display: flex; gap: 28px; align-items: flex-start; }
+
+/* border-box: 220 × 120. Three in a row: neighbours differ. */
+.card { width: 220px; height: 120px; box-sizing: border-box; border: 2px solid #1d2433; border-radius: 12px; background: var(--hatch); --sketch-fill: hatch; }
+.card:hover { background-color: #16a34a; }
+/* A size modifier gets its own drawing (300 × 120). Like other modifiers (M4) its selector holds the
+   parent's class; a lone `.card--wide` would be unrelated, and the 220px drawing would stretch. */
+.card.card--wide { width: 300px; }
+
+/* content-box: 158 + 2 × 10 padding + 2 × 1 border = 180 × 100. Sharp corners. */
+.boxed { width: 158px; height: 78px; padding: 10px; border: 1px solid #1d2433; background-color: var(--hatch); --sketch-fill: hatch; }
+
+/* No border: the strokes end between the element's edge and 4px outside it. */
+.bare { width: 200px; height: 100px; border-radius: 16px; background-color: var(--hatch); --sketch-fill: hatch; }
+
+/* The height comes from min-height, so a hint gives the size: the border box, 240 + 2 × 2 by 90 + 2 × 2. */
+.hinted { width: 240px; min-height: 90px; border: 2px solid #1d2433; background-color: var(--hatch); --sketch-fill: hatch; --sketch-size: 244 94; }
+
+/* Over the size limit (640 × 480 px²): the repeated hatch. */
+.big { width: 700px; height: 500px; box-sizing: border-box; border: 1px solid #1d2433; background-color: var(--hatch); --sketch-fill: hatch; }

@@ -6,7 +6,8 @@
 // else than the original CSS.
 import type { Declaration } from 'postcss';
 import type { ResolvedOptions } from '../options';
-import { type RuleFacts, isBackgroundProp, isBorderLineProp, isBorderProp, parseFillMode } from '../read/collect';
+import { type RuleFacts, isBackgroundProp, isBorderLineProp, isBorderProp, isSizeProp, parseFillMode } from '../read/collect';
+import { parseSizeHint } from '../read/values';
 import { selectorText } from '../read/selectors';
 import type { Condition } from '../read/variables';
 import type { Diagnostic, Result } from '../report/diagnostics';
@@ -27,7 +28,7 @@ import {
   itemsOf,
   parentsOf,
 } from './cascade';
-import { type Scope, ambiguousSelectorError, classThemeError, familyTooLargeError, invalidFillError, invalidSketchError, parentlessError } from './colors';
+import { type Scope, ambiguousSelectorError, classThemeError, familyTooLargeError, invalidFillError, invalidSizeError, invalidSketchError, parentlessError } from './colors';
 import { type Candidate, combinations, needsRule, winner } from './combos';
 
 export { type ConditionVariant, type DrawRequest, type NineSliceRequest, SEEDS, requestFor } from './request';
@@ -54,14 +55,15 @@ const withoutBackground = (outcome: Exclude<Outcome, { readonly kind: 'leave' }>
   return rest;
 };
 
-/** Where new declarations go in a rule: after its last border declaration (or variable). */
+/** Where new declarations go in a rule: after its last border declaration (or variable, or size for an exact hatch). */
 export const anchorOf = (facts: RuleFacts, paints = false): Declaration | undefined =>
   // A drawn fill (or a restored background) must come after the background declarations too:
   // a later `background` shorthand would set the colour again.
   (paints ? facts.decls.filter((d) => isBorderLineProp(d.prop.toLowerCase()) || isBackgroundProp(d.prop)).at(-1) : undefined) ??
   facts.lastBorderDecl ??
   facts.decls.filter((d) => isBorderProp(d.prop)).at(-1) ??
-  facts.decls.filter((d) => d.prop.startsWith('--')).at(-1);
+  facts.decls.filter((d) => d.prop.startsWith('--')).at(-1) ??
+  facts.decls.filter((d) => isSizeProp(d.prop)).at(-1);
 
 /** The rule's selector as written, or resolved in full when the rule is nested (CSS nesting). */
 const ruleSelector = (facts: RuleFacts): string =>
@@ -114,6 +116,7 @@ export const gather = (facts: ReadonlyArray<RuleFacts>, scope: Scope, options: R
         const mode = parseFillMode(d.value);
         return mode.kind === 'invalid' ? [invalidFillError(d)] : [];
       }),
+    ...f.decls.filter((d) => d.prop.toLowerCase() === '--sketch-size' && parseSizeHint(d.value).kind === 'invalid').map(invalidSizeError),
   ]);
   const items = itemsOf(facts);
   const complete = items.filter((item) => isSelfContained(item.facts));

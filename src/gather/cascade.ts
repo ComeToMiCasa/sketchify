@@ -6,7 +6,7 @@
 // through the CSS cascade (importance, specificity, source order); the result is the drawing.
 import type { Declaration } from 'postcss';
 import type { ResolvedOptions } from '../options';
-import { type BorderState, type RuleFacts, borderOf, isBackgroundProp, isBorderProp, paintsFill } from '../read/collect';
+import { type BorderState, type RuleFacts, borderOf, isBackgroundProp, isBorderProp, isSizeProp, paintsFill } from '../read/collect';
 import { type SelectorEntry, type Specificity, compareSpecificity, contains, unionEntries } from '../read/selectors';
 import { SIDES, usesVar } from '../read/values';
 import { type Condition, isSketchControl } from '../read/variables';
@@ -105,11 +105,18 @@ export type Computed = {
   readonly backgroundAsWritten: string;
 };
 
-/** Declarations the drawing reads: the border, and the background and `--sketch-fill` for fills (M6). */
-export const isPaintProp = (prop: string): boolean => isBorderProp(prop) || isBackgroundProp(prop) || prop.toLowerCase() === '--sketch-fill';
+/**
+ * Declarations the drawing reads: the border, the background and `--sketch-fill` for fills (M6),
+ * and the size for an exact hatch (M6c).
+ */
+export const isPaintProp = (prop: string): boolean =>
+  isBorderProp(prop) || isBackgroundProp(prop) || prop.toLowerCase() === '--sketch-fill' || isSizeProp(prop);
 
 /** The rule asks for a drawn fill (`--sketch-fill: rough | marker | hatch`). */
 export const asksForFill = (facts: RuleFacts): boolean => paintsFill(facts.border.fill);
+
+/** The rule asks for a hatch (`--sketch-fill: hatch`). */
+const asksForHatch = (facts: RuleFacts): boolean => facts.border.fill.kind === 'mode' && facts.border.fill.mode === 'hatch';
 
 /** The element's border after the cascade, with `var()` resolved in one environment. */
 export const computeBorder = (applicable: ReadonlyArray<Item>, env: ReadonlyMap<string, string>): Computed => {
@@ -191,7 +198,7 @@ export const evaluate = (
 
   if (hatchInCurrentColor(base.border)) return { value: leave, diagnostics: [currentFillColorError(anchor)] };
   const request = paintRequestFor(base.border, options);
-  const hatch = hatchFor(base.border);
+  const hatch = hatchFor(base.border, options);
   // A rule here draws a fill and hides its background; if this element gets none, show it again.
   const filled = (request?.kind === 'nine-slice' && request.fill !== undefined) || hatch !== undefined;
   const background = !filled && applicable.some((item) => asksForFill(item.facts)) ? { background: base.backgroundAsWritten } : {};
@@ -202,7 +209,7 @@ export const evaluate = (
         hatch: {
           color: hatch.color,
           variants: conditional.flatMap(({ conditions, computed }) => {
-            const color = hatchFor(computed.border)?.color;
+            const color = hatchFor(computed.border, options)?.color;
             return color === hatch.color ? [] : [{ conditions, color }];
           }),
         },
@@ -222,6 +229,8 @@ export const evaluate = (
   const outcomes = conditional.map(({ conditions, computed }): Result<ReadonlyArray<ConditionVariant>> => {
     if (computed.diagnostics.length > 0) return { value: [], diagnostics: computed.diagnostics };
     const variant = paintRequestFor(computed.border, options);
+    // An exact hatch must stay one under the condition: the repeated one would not be written there.
+    if (variant && exact(request) !== exact(variant)) return { value: [], diagnostics: [conditionUndrawableError(anchor, conditions)] };
     if (variant) return { value: JSON.stringify(variant) === JSON.stringify(request) ? [] : [{ conditions, request: variant }], diagnostics: [] };
     if (allTransparent(computed.border)) return { value: [{ conditions, request: undefined }], diagnostics: [] };
     const error = blockedByCurrentColor(computed.border, options) ? currentColorError(anchor) : conditionUndrawableError(anchor, conditions);
@@ -235,6 +244,8 @@ export const evaluate = (
     diagnostics: [],
   };
 };
+
+const exact = (request: DrawRequest): boolean => request.kind === 'nine-slice' && request.fill?.kind === 'hatch';
 
 // --- Families ---------------------------------------------------------------
 
@@ -261,9 +272,12 @@ export const familiesOf = (items: ReadonlyArray<Item>, scope: Scope): ReadonlyAr
   const bases = complete.filter((item) => parentsOf(item, complete).length === 0);
   return bases.map((base) => {
     const around = items.filter((item) => item.facts !== base.facts && appliesTo(base, elementOfItem(item)));
-    // Background rules matter only where a rule of the family draws a fill (M6a).
+    // Background rules matter only where a rule of the family draws a fill (M6a); size rules only
+    // where it draws a hatch, which is exact when the size is known (M6c).
     const fills = [base, ...around].some((item) => asksForFill(item.facts));
-    const paints = (prop: string): boolean => isBorderProp(prop) || (fills && (isBackgroundProp(prop) || prop.toLowerCase() === '--sketch-fill'));
+    const hatches = [base, ...around].some((item) => asksForHatch(item.facts));
+    const paints = (prop: string): boolean =>
+      isBorderProp(prop) || (fills && (isBackgroundProp(prop) || prop.toLowerCase() === '--sketch-fill')) || (hatches && isSizeProp(prop));
     const borderItems = [base, ...around.filter((item) => item.facts.decls.some((d) => paints(d.prop)))];
     // Variables the border reads, following variables inside variables (root values and members' own).
     const definitions = (name: string): ReadonlyArray<string> => [

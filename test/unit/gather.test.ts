@@ -2,7 +2,7 @@ import postcss, { type Rule } from 'postcss';
 import { describe, expect, it } from 'vitest';
 import { factsOfRule } from '../../src/read/collect';
 import { requestFor } from '../../src/gather/gather';
-import { paintRequestFor, stripRequestFor } from '../../src/gather/request';
+import { MAX_EXACT_AREA, paintRequestFor, sizeOf, stripRequestFor } from '../../src/gather/request';
 import { PRESETS } from '../../src/options';
 
 const options = { rough: PRESETS.normal };
@@ -103,5 +103,46 @@ describe('paintRequestFor (fills, M6a)', () => {
     'border: 1px solid red; background: currentColor; --sketch-fill: rough',
   ])('draws nothing for `%s`', (body) => {
     expect(paint(body)).toBeUndefined();
+  });
+});
+
+describe('sizeOf and the exact hatch (M6c)', () => {
+  const size = (body: string) => sizeOf(factsOfRule(ruleOf(body)).border);
+  const paint = (body: string) => paintRequestFor(factsOfRule(ruleOf(body)).border, options);
+
+  it.each([
+    ['border-box', 'width: 220px; height: 120px; box-sizing: border-box; padding: 9px; border: 3px solid red', { width: 220, height: 120 }],
+    ['content-box adds padding and borders', 'width: 200px; height: 100px; padding: 10px 6px 4px; border: 2px solid red', { width: 216, height: 118 }],
+    ['an unset padding is 0', 'width: 200px; height: 100px; border: 1px solid red', { width: 202, height: 102 }],
+    ['a side without a line adds nothing', 'width: 200px; height: 100px; border-bottom: 2px solid red', { width: 200, height: 102 }],
+    ['a style without a width is medium (3px)', 'width: 200px; height: 100px; border-style: solid; border-color: red', { width: 206, height: 106 }],
+    ['the hint wins', 'width: 50%; --sketch-size: 240 90', { width: 240, height: 90 }],
+  ] as const)('%s', (_name, body, expected) => {
+    expect(size(body)).toEqual(expected);
+  });
+
+  it.each([
+    ['no height', 'width: 220px'],
+    ['a % width', 'width: 50%; height: 100px'],
+    ['an em padding', 'width: 200px; height: 100px; padding: 1em'],
+    ['box-sizing: inherit', 'width: 200px; height: 100px; box-sizing: inherit'],
+    ['a logical padding', 'width: 200px; height: 100px; padding-inline: 4px'],
+    ['an invalid hint and no size', '--sketch-size: big'],
+  ] as const)('unknown: %s', (_name, body) => {
+    expect(size(body)).toBeUndefined();
+  });
+
+  it('asks for an exact hatch with the size and the hatch options', () => {
+    expect(paint('width: 220px; height: 120px; box-sizing: border-box; border: 2px solid red; background: #3b82f6; --sketch-fill: hatch')).toMatchObject({
+      kind: 'nine-slice',
+      width: 2,
+      fill: { kind: 'hatch', color: '#3b82f6', width: 220, height: 120, hatch: { gap: 16, weight: 6 } },
+    });
+  });
+
+  it('keeps the repeated hatch above the area limit', () => {
+    const side = Math.ceil(Math.sqrt(MAX_EXACT_AREA)) + 1;
+    expect(paint(`width: ${side}px; height: ${side}px; background: #3b82f6; --sketch-fill: hatch`)).toBeUndefined();
+    expect(paint('width: 300px; height: 200px; background: #3b82f6; --sketch-fill: hatch')).toMatchObject({ fill: { kind: 'hatch' } });
   });
 });

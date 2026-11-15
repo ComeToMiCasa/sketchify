@@ -65,8 +65,8 @@ const enter = async (p: Page, page: TestPage, css: string, state: State): Promis
  * WebKit computes a native (`appearance: auto`) select's radius as 5px whatever the CSS says,
  * so its computed border is not the cascade's result. Form controls are M7.
  */
-const computedBorders = (p: Page): Promise<ReadonlyArray<Border>> =>
-  p.evaluate(() =>
+const computedBorders = (p: Page, sizes: boolean): Promise<ReadonlyArray<Border>> =>
+  p.evaluate((sizes) =>
     Array.from(document.querySelectorAll<HTMLElement>('body *:not(select)')).flatMap((el) => {
       const s = getComputedStyle(el);
       const sides = ['top', 'right', 'bottom', 'left'].map((side) => ({
@@ -79,8 +79,10 @@ const computedBorders = (p: Page): Promise<ReadonlyArray<Border>> =>
       const fill = (fillMode === 'rough' || fillMode === 'marker' || fillMode === 'hatch') && s.backgroundColor !== 'rgba(0, 0, 0, 0)' && s.backgroundImage === 'none';
       const hasBorder = sides.some((side) => side.width > 0 && side.style !== 'none' && side.style !== 'hidden');
       if (!hasBorder && !fill) return [];
-      const paint = fillMode === '' ? '' : ` background-color: ${s.backgroundColor} !important; background-image: ${s.backgroundImage} !important; --sketch-fill: ${fillMode} !important;`;
       const r = el.getBoundingClientRect();
+      // Pages whose hatched elements have a known size (M6c): the size the compiler should have worked out.
+      const size = sizes && fillMode === 'hatch' ? ` --sketch-size: ${r.width} ${r.height} !important;` : '';
+      const paint = fillMode === '' ? '' : ` background-color: ${s.backgroundColor} !important; background-image: ${s.backgroundImage} !important; --sketch-fill: ${fillMode} !important;${size}`;
       const radius = ['top-left', 'top-right', 'bottom-right', 'bottom-left'].map((c) => s.getPropertyValue(`border-${c}-radius`)).join(' ');
       const decls = sides.map((side) => `border-${side.side}: ${side.width}px ${side.style} ${side.color} !important;`).join(' ');
       return [
@@ -93,7 +95,7 @@ const computedBorders = (p: Page): Promise<ReadonlyArray<Border>> =>
         },
       ];
     }),
-  );
+  sizes);
 
 const REACH = 8;
 const isInk = (px: readonly number[]): boolean => Math.min(...px) < 235 || Math.max(...px) - Math.min(...px) > 30;
@@ -129,7 +131,7 @@ const SAME = 0.02;
 /** Per element: how far the transformed CSS is from the drawing of its computed border. */
 const compare = async (p: Page, page: TestPage, state: State, edit: (css: string) => string = (css) => css): Promise<ReadonlyArray<readonly [string, number]>> => {
   await enter(p, page, FILL_PER_RULE + page.css, state);
-  const borders = await computedBorders(p);
+  const borders = await computedBorders(p, KNOWN_SIZES.has(page.name));
   const flattened = `${page.css}\n${borders.map((b) => b.css).join('\n')}\n`;
 
   await enter(p, page, edit(await transform(page.css, {}, page.cssPath)), state);
@@ -164,11 +166,18 @@ const INTERACTIONS: Readonly<Record<string, ReadonlyArray<State>>> = {
     { name: 'hover #btn-flat, dark', width: 800, scheme: 'dark', hover: 'btn-flat' },
   ],
   hatch: [{ name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' }],
+  'exact-hatch': [
+    { name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' },
+    { name: 'hover #wide, dark', width: 800, scheme: 'dark', hover: 'wide' },
+  ],
   boxes: [],
   forms: [],
 };
 
-for (const name of ['design-system', 'boxes', 'forms', 'fills', 'hatch']) {
+/** Pages whose CSS gives the hatched elements' sizes, so the compiler draws exact hatches (M6c). */
+const KNOWN_SIZES: ReadonlySet<string> = new Set(['exact-hatch']);
+
+for (const name of ['design-system', 'boxes', 'forms', 'fills', 'hatch', 'exact-hatch']) {
   test.describe(`M4 draws what the original CSS shows: ${name}`, () => {
     const page = loadPage(name);
     for (const state of [...STATES, ...(INTERACTIONS[name] ?? [])]) {
@@ -216,4 +225,13 @@ test('the oracle compares fills too: without the plugin a rough fill differs (co
   const results = await compare(p, fills, { name: 'plain', width: 800, scheme: 'light' }, () => fills.css);
   expect(results.find(([label]) => label === '#block1')?.[1]).toBeGreaterThan(SAME);
   expect(results.find(([label]) => label === '#bar')?.[1]).toBeGreaterThan(SAME);
+});
+
+test('the oracle compares exact hatches too: a wrong size hint differs (control)', async ({ page: p }) => {
+  const exact = loadPage('exact-hatch');
+  // The hint says 240 wide; the element is 244 (border-box), as the flattened rule says.
+  const wrong = { ...exact, css: exact.css.replace('--sketch-size: 244 94;', '--sketch-size: 240 94;') };
+  const results = await compare(p, wrong, { name: 'plain', width: 800, scheme: 'light' });
+  expect(results.find(([label]) => label === '#hinted')?.[1]).toBeGreaterThan(SAME);
+  expect(results.find(([label]) => label === '#card1')?.[1]).toBeLessThan(SAME);
 });
