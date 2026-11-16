@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "Turn plain CSS borders, fills and underlines into hand-drawn sketches without changing layout (command line for postcss-sketchify)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ComeToMiCasa/sketchify.git",
+    "directory": "packages/sketchify"
+  },
+  "homepage": "https://github.com/ComeToMiCasa/sketchify#readme",
+  "bugs": {
+    "url": "https://github.com/ComeToMiCasa/sketchify/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=20"
