@@ -28,6 +28,19 @@
 - GitHub 원격 저장소를 연결하고 `.github/workflows/ci.yml`이 실제로 도는지 확인 (M0에서는 로컬만 확인).
 - CI 캐시·매트릭스는 필요해지면 그때 추가.
 
+## CI 실패 수정 (2026-11-16, 사용자 요청)
+
+- 문제: 첫 CI 실행에서 브라우저 테스트 6개 실패(lint·단위 455개는 통과).
+  - Chromium 4개(neighbors hover, sketch, theme 다크·hover): 색이 바뀐 뒤에도 이전 색 픽셀이 남은 것으로 셈.
+  - WebKit 2개(base): select 높이 33 → 27px, textarea 손잡이 잉크 0 → 0.
+- 원인:
+  - Chromium: GitHub의 Ubuntu 러너는 글자를 서브픽셀(LCD)로 그려 글자 가장자리에 빨강·파랑 번짐이 생기고, 픽셀 테스트가 이것을 테두리 잉크로 셈. Docker(Playwright 1.65 공식 이미지, x64, CPU 2개)에서 기본 설정으로는 재현 안 됨, fontconfig로 서브픽셀을 켜면 같은 3개가 같은 이유로 실패해 확인.
+  - WebKit: CI의 WebKit은 Linux(GTK)판이라 폼 요소 기본 모양이 사파리와 다름(select 기본 높이, 손잡이 없음). 지원 대상은 사파리.
+- 고친 것(사용자 결정):
+  - `playwright.config.ts`: 테스트용 Chromium을 `--disable-lcd-text`로 띄움(회색조 글자). 테스트 기대값은 그대로. 서브픽셀을 켠 Docker에서 Chromium 132개 통과 확인.
+  - `.github/workflows/ci.yml`: 세 작업으로 나눔. check(Ubuntu: lint, 단위, 빌드), chromium(Ubuntu), webkit(macOS 러너, 사파리와 같은 엔진·폼 모양). 실패하면 test-results를 내려받을 수 있게 올림. actions를 v5로(Node 20 지원 종료 경고).
+- 남은 일: push 후 CI 결과 확인. macOS 러너는 공개 저장소면 무료, 비공개면 사용 시간이 더 비쌈.
+
 ## M9 출시 준비 (2026-11-16)
 
 - 한 일:
@@ -49,7 +62,7 @@
   1. `npm run lint && npm test && npm run test:browser && npm run build`
   2. `npm view postcss-sketchify` · `npm view sketchify`가 둘 다 404(아직 비어 있음)인지 다시 확인(2026-11-16 기준 비어 있음. 비슷한 `postcss-sketch`가 있지만 구두점만 다른 이름이 아니라 npm 규칙에 걸리지 않음).
   3. `npm login` 후 저장소 루트에서 `npm publish`(postcss-sketchify), 이어서 `cd packages/sketchify && npm publish`(sketchify). 순서가 바뀌면 sketchify 설치가 실패함.
-- 원격·CI 연결(사용자가 할 때): GitHub 저장소를 만들어 `git remote add origin …`, push하면 `.github/workflows/ci.yml`이 lint·단위·브라우저 테스트를 돌림. 연결 뒤 package.json에 `repository`를 넣으면 npm 페이지에 저장소 링크가 생김.
+- 저장소: https://github.com/ComeToMiCasa/sketchify (2026-11-16). 두 package.json에 `repository`·`homepage`·`bugs`를 넣음(sketchify는 `directory: packages/sketchify`). 원격 `origin`은 연결되어 있음. push는 사용자가. push하면 `.github/workflows/ci.yml`이 lint·단위·브라우저 테스트를 돌림.
 - 남은 일(이후 버전): 파일 간 그림 중복 제거, Tailwind 입력, 정밀 빗금의 Houdini `paint()`, 요소별 seed, CSS 프레임워크 지원(위 "다음에 할 일"), Firefox.
 
 ## 브라우저 테스트 안정화 (2026-11-16, 사용자 요청)
