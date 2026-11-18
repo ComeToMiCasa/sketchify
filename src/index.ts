@@ -33,7 +33,7 @@ const report = (root: Root, result: Result, diagnostics: ReadonlyArray<Diagnosti
   const errors = diagnostics.filter(isError);
   const [first] = errors;
   if (first) {
-    const message = errors.length === 1 ? first.message : [`오류 ${errors.length}개`, ...errors.map(formatDiagnostic)].join('\n');
+    const message = errors.length === 1 ? first.message : [`${errors.length} errors`, ...errors.map(formatDiagnostic)].join('\n');
     throw (first.node ?? root).error(message, { plugin: 'postcss-sketchify' });
   }
   diagnostics.forEach((diagnostic) => result.warn(diagnostic.message, diagnostic.node ? { node: diagnostic.node } : {}));

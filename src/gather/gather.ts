@@ -1,4 +1,4 @@
-// From rules to what to write (spec "여러 규칙에 걸친 테두리"). Pure.
+// From rules to what to write (spec "Borders across rules"). Pure.
 //
 // Each rule draws what the original CSS shows for an element it matches alone (with its parent
 // rules). Elements that several rules match together (a modifier and a state, a modifier in a

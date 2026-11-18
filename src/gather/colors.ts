@@ -1,4 +1,4 @@
-// Resolves `var()` in border declarations (spec "색 해석"). Pure.
+// Resolves `var()` in border declarations (spec "Colour resolution"). Pure.
 //
 // Values come from `:root`/`html` rules in the file, and from the drawn rule itself, which
 // wins (an element's own value beats the inherited one). Root rules inside `@media` or
@@ -80,24 +80,24 @@ export const lookupFor = (own: Env, env: Env) => (name: string): string | undefi
 
 // --- Messages ---------------------------------------------------------------
 
-const OFF = '이 규칙을 변환에서 빼려면 규칙 안에 `--sketch: off`를 넣으세요.';
+const OFF = 'To leave this rule out of the conversion, add `--sketch: off` to it.';
 
 export const currentColorError = (decl: Declaration | undefined): Diagnostic => ({
   severity: 'error',
   node: decl,
   message:
-    '테두리 색을 빌드 때 알 수 없습니다: currentColor. 손그림 테두리는 색을 그림(SVG)에 고정하므로 색이 정해져 있어야 합니다. ' +
-    '`border: 1px solid`처럼 색을 생략해도 currentColor가 됩니다. ' +
-    `고치는 법: 색을 직접 쓰세요(예: \`border: 1px solid #1d2433\`). ${OFF}`,
+    'The border colour is not known at build time: currentColor. A sketched border fixes its colour in the drawing (SVG), so the colour must be known. ' +
+    'Leaving the colour out, as in `border: 1px solid`, also means currentColor. ' +
+    `Fix: write the colour (e.g. \`border: 1px solid #1d2433\`). ${OFF}`,
 });
 
 export const missingVarError = (decl: Declaration, name: string, cycle: boolean): Diagnostic => ({
   severity: 'error',
   node: decl,
   message: cycle
-    ? `\`${name}\`의 값이 자기 자신을 참조해(순환) 값을 정할 수 없습니다. 변수 정의를 고치세요. ${OFF}`
-    : `\`var(${name})\`의 값을 찾을 수 없습니다. 테두리에 쓰는 변수는 같은 파일의 \`:root\`나 \`html\` 규칙, 또는 이 규칙 안에 정의해야 합니다. ` +
-      `다른 파일에 정의했다면 postcss-import 등으로 한 파일로 합친 뒤 변환하세요. ${OFF}`,
+    ? `\`${name}\` refers to itself (a cycle), so it has no value. Fix the variable definitions. ${OFF}`
+    : `The value of \`var(${name})\` was not found. A variable used in a border must be defined in a \`:root\` or \`html\` rule of the same file, or in this rule. ` +
+      `If it is defined in another file, combine the files first (e.g. with postcss-import). ${OFF}`,
 });
 
 export const classThemeError = (decl: Declaration, def: VariableDef): Diagnostic => {
@@ -106,9 +106,9 @@ export const classThemeError = (decl: Declaration, def: VariableDef): Diagnostic
     severity: 'error',
     node: decl,
     message:
-      `\`${def.name}\`가 \`${def.rule.selector}\`${at ? `(${at})` : ''}에서 바뀝니다. 클래스로 바꾸는 값은 빌드 때 어떤 값이 쓰일지 알 수 없어 테두리 그림에 담을 수 없습니다. ` +
-      `고치는 법: 테마라면 미디어 쿼리로 바꾸세요(예: \`@media (prefers-color-scheme: dark) { :root { ${def.name}: … } }\`). 그러면 조건마다 그림을 따로 만듭니다. ` +
-      `이 규칙만의 값이라면 이 규칙 안에 정의하고 다른 규칙에서는 바꾸지 마세요. ${OFF}`,
+      `\`${def.name}\` is changed in \`${def.rule.selector}\`${at ? ` (${at})` : ''}. A value changed by a class cannot be known at build time, so it cannot go into the border drawing. ` +
+      `Fix: for a theme, use a media query instead (e.g. \`@media (prefers-color-scheme: dark) { :root { ${def.name}: … } }\`); each condition then gets its own drawing. ` +
+      `If the value belongs to this rule only, define it in this rule and do not change it elsewhere. ${OFF}`,
   };
 };
 
@@ -116,14 +116,14 @@ export const conditionUndrawableError = (decl: Declaration | undefined, conditio
   severity: 'error',
   node: decl,
   message:
-    `\`${conditions.map((c) => `@${c.name} ${c.params}`).join(' ')}\` 안에서 바뀐 변수 값으로는 이 테두리를 그릴 수 없습니다(실선이 아니거나, 색·두께를 알 수 없는 값). ` +
-    `그 조건에서도 같은 종류의 값(px 두께, 실선, 색)이 되도록 변수를 고치세요. ${OFF}`,
+    `Inside \`${conditions.map((c) => `@${c.name} ${c.params}`).join(' ')}\`, the changed variables make a border that cannot be drawn (not solid, or a colour or width not known at build time). ` +
+    `Change the variables so that they give the same kind of value under that condition too (px width, solid, a colour). ${OFF}`,
 });
 
 export const invalidSketchError = (decl: Declaration): Diagnostic => ({
   severity: 'error',
   node: decl,
-  message: `\`--sketch\`에는 \`off\`만 쓸 수 있습니다. 받은 값: \`${decl.value}\`.`,
+  message: `\`--sketch\` only accepts \`off\`. Got: \`${decl.value}\`.`,
 });
 
 // --- Cascade (M4) -------------------------------------------------------------
@@ -132,10 +132,10 @@ export const parentlessError = (decl: Declaration, selector: string): Diagnostic
   severity: 'error',
   node: decl,
   message:
-    `\`${selector}\`는 테두리의 일부(\`${decl.prop}\`)만 바꾸는데, 나머지 값(두께·스타일·색·모서리)을 받을 규칙을 셀렉터로 알 수 없습니다. ` +
-    '손그림은 테두리 값을 그림 하나에 담으므로 값을 모두 알아야 하고, 클래스 이름으로 부모를 추측하지는 않습니다. ' +
-    '고치는 법: (1) 셀렉터에 테두리가 완성된 규칙을 함께 쓰세요(예: `.btn--lg` 대신 `.btn.btn--lg`). ' +
-    '(2) 이 규칙에 테두리 속성을 모두 쓰세요(예: `border: 2px solid #1d2433`). ' +
+    `\`${selector}\` changes only part of a border (\`${decl.prop}\`), and no rule in its selector gives the rest (width, style, colour, radius). ` +
+    'A sketched border puts all of its values into one drawing, so all of them must be known; the parent is not guessed from class names. ' +
+    'Fix: (1) include the rule with the complete border in the selector (e.g. `.btn.btn--lg` instead of `.btn--lg`). ' +
+    '(2) Write the whole border in this rule (e.g. `border: 2px solid #1d2433`). ' +
     `(3) ${OFF}`,
 });
 
@@ -143,16 +143,16 @@ export const ambiguousSelectorError = (decl: Declaration): Diagnostic => ({
   severity: 'error',
   node: decl,
   message:
-    '`:is()`·`:where()` 안에 후보가 여럿이라, 테두리의 나머지 값을 어느 규칙에서 받을지 정할 수 없습니다. ' +
-    `셀렉터 목록으로 풀어 쓰세요(예: \`:is(.a, .b):hover\` → \`.a:hover, .b:hover\`). ${OFF}`,
+    '`:is()` or `:where()` has several candidates, so it is unclear which rule gives the rest of the border. ' +
+    `Write it as a selector list (e.g. \`:is(.a, .b):hover\` → \`.a:hover, .b:hover\`). ${OFF}`,
 });
 
 export const familyTooLargeError = (decl: Declaration, count: number, max: number): Diagnostic => ({
   severity: 'error',
   node: decl,
   message:
-    `이 규칙의 테두리를 바꾸는 규칙(수정자·상태·조건)이 ${count}개로 ${max}개를 넘습니다. 조합이 2^${count}가지로 늘어 처리하지 않습니다. ` +
-    `규칙을 나누거나(예: 크기별 기본 클래스), 일부 규칙에 \`--sketch: off\`를 넣으세요.`,
+    `${count} rules (modifiers, states and conditions) change this rule's border, more than ${max}. That would make 2^${count} combinations, so it is not converted. ` +
+    `Split the rule (e.g. a base class per size), or add \`--sketch: off\` to some of the rules.`,
 });
 
 // --- Fills (M6a) -------------------------------------------------------------------
@@ -160,21 +160,21 @@ export const familyTooLargeError = (decl: Declaration, count: number, max: numbe
 export const invalidFillError = (decl: Declaration): Diagnostic => ({
   severity: 'error',
   node: decl,
-  message: `\`--sketch-fill\`에는 \`solid\`, \`rough\`, \`marker\`, \`hatch\` 중 하나를 쓸 수 있습니다. 받은 값: \`${decl.value}\`.`,
+  message: `\`--sketch-fill\` accepts \`solid\`, \`rough\`, \`marker\` or \`hatch\`. Got: \`${decl.value}\`.`,
 });
 
 export const invalidSizeError = (decl: Declaration): Diagnostic => ({
   severity: 'error',
   node: decl,
   message:
-    `\`--sketch-size\`에는 요소의 테두리 상자(border-box) 크기를 \`가로 세로\`(예: \`240 160\` 또는 \`240px 160px\`)나, 정사각형이면 \`가로\` 하나로 씁니다. ` +
-    `0보다 큰 px 값이어야 합니다. 받은 값: \`${decl.value}\`.`,
+    `\`--sketch-size\` takes the element's border-box size as \`width height\` (e.g. \`240 160\` or \`240px 160px\`), or one \`width\` for a square. ` +
+    `The values must be px greater than 0. Got: \`${decl.value}\`.`,
 });
 
 export const currentFillColorError = (decl: Declaration | undefined): Diagnostic => ({
   severity: 'error',
   node: decl,
   message:
-    '채움 색을 빌드 때 알 수 없습니다: currentColor. `--sketch-fill: rough`·`marker`는 배경색을 그림(SVG)에 고정하므로 색이 정해져 있어야 합니다. ' +
-    `고치는 법: 배경색을 직접 쓰거나(예: \`background-color: #ffe38a\`), \`--sketch-fill\`을 빼서 원래 배경을 쓰세요. ${OFF}`,
+    'The fill colour is not known at build time: currentColor. `--sketch-fill: rough` and `marker` fix the background colour in the drawing (SVG), so the colour must be known. ' +
+    `Fix: write the background colour (e.g. \`background-color: #ffe38a\`), or remove \`--sketch-fill\` to keep the original background. ${OFF}`,
 });

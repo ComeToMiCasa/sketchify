@@ -1,4 +1,4 @@
-// 9-slice border drawings (spec "테두리"). Ported from prototypes/showcase/gen.mjs nineSlice().
+// 9-slice border drawings (spec "Borders"). Ported from prototypes/showcase/gen.mjs nineSlice().
 import rough from 'roughjs';
 import type { Rough } from '../options';
 import { type FillInput, MARKER_REACH, fillPaths } from './fill';
@@ -116,7 +116,7 @@ const roundedRect = (x: number, y: number, w: number, h: number, r: number): str
 
 const generator = rough.generator();
 
-/** Rough.js draws each line twice, so one pass is thinner to keep the visible weight (spec "선 두께"). */
+/** Rough.js draws each line twice, so one pass is thinner to keep the visible weight (spec "Stroke width"). */
 const STROKE_SCALE = 0.85;
 
 /** The border line drawn on the square source, as one `<g>`. */
@@ -195,7 +195,7 @@ export const drawNineSlice = (input: NineSliceInput, flip: Flip = 'none'): NineS
   return { ...geometry, svg, url: dataUri(svg) };
 };
 
-// --- One-sided lines (spec "한 변 border, hr, 밑줄") -------------------------------
+// --- One-sided lines (spec "One-sided borders, hr, underlines") -------------------------------
 // Ported from prototypes/showcase/gen.mjs strip(): a single line whose two ends stay fixed
 // and whose middle stretches along its length.
 
@@ -283,7 +283,7 @@ export const drawStrip = (input: StripInput, flip: Flip = 'none'): Strip => {
   return { ...geometry, svg, url: dataUri(svg) };
 };
 
-// --- Underlines (spec "한 변 border, hr, 밑줄", M6d) ------------------------------------
+// --- Underlines (spec "One-sided borders, hr, underlines", M6d) ------------------------------------
 // The one-sided line's drawing (drawStrip, side `bottom`) on an element without a border: the
 // `border-image` width and outset are given in px, so it needs no border and the layout stays.
 // The line sits just below the text box, like a `border-bottom` would, with room to wobble.
@@ -300,7 +300,7 @@ export const underlinePlacement = (width: number): ImagePlacement => {
   return { ...placement, outset: `${top} ${right} ${round1(across / 2 + width / 2)}px ${left}` };
 };
 
-// --- Focus rings (spec "폼 요소와 @sketchify base", M7a) ----------------------------------
+// --- Focus rings (spec "Form controls and @sketchify base", M7a) ----------------------------------
 // A focused base field: its border (the same shape as unfocused, in the accent colour) and a
 // second hand-drawn ring a little outside it, in one border image. It replaces the browser's focus
 // outline, so it must be as easy to see. The ring lies in the outset: the layout stays.

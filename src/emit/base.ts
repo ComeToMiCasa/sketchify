@@ -1,4 +1,4 @@
-// `@sketchify base;` (spec "폼 요소와 @sketchify base", M7a): sketched default styles for form
+// `@sketchify base;` (spec "Form controls and @sketchify base", M7a): sketched default styles for form
 // controls and `hr`, in place of the browser's. Writes them where the line is, in a cascade
 // layer and under `:where()`, so the page's own styles always win. With emit.ts and variants.ts,
 // one of the places that change the PostCSS tree.
@@ -163,8 +163,8 @@ export const findBase = (root: Root): Result<AtRule | undefined> => {
   const unknown = found.filter((rule) => rule.params.trim() !== 'base');
   const bases = found.filter((rule) => rule.params.trim() === 'base');
   const diagnostics: ReadonlyArray<Diagnostic> = [
-    ...unknown.map((rule) => ({ severity: 'error' as const, node: rule, message: `알 수 없는 \`@sketchify ${rule.params.trim()}\`입니다. 쓸 수 있는 것: \`@sketchify base;\`.` })),
-    ...bases.slice(1).map((rule) => ({ severity: 'error' as const, node: rule, message: '`@sketchify base;`는 파일에 한 번만 쓸 수 있습니다.' })),
+    ...unknown.map((rule) => ({ severity: 'error' as const, node: rule, message: `Unknown \`@sketchify ${rule.params.trim()}\`. The only form is \`@sketchify base;\`.` })),
+    ...bases.slice(1).map((rule) => ({ severity: 'error' as const, node: rule, message: '`@sketchify base;` can appear only once in a file.' })),
   ];
   return { value: bases[0], diagnostics };
 };

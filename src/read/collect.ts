@@ -65,7 +65,7 @@ export type BorderState = {
   readonly text: TextState;
 };
 
-/** `text-decoration` parts, the text colour and `display` (spec "한 변 border, hr, 밑줄"). */
+/** `text-decoration` parts, the text colour and `display` (spec "One-sided borders, hr, underlines"). */
 export type TextState = {
   readonly line: Declared<DecorationLine>;
   readonly style: Declared<Style>;
@@ -76,7 +76,7 @@ export type TextState = {
   readonly display: Declared<Display>;
 };
 
-/** The declarations that give an element's border-box size (spec "크기 처리"). */
+/** The declarations that give an element's border-box size (spec "Element sizes"). */
 export type SizeState = {
   readonly width: Declared<Width>;
   readonly height: Declared<Width>;
@@ -86,7 +86,7 @@ export type SizeState = {
   readonly hint: Declared<SizeHint>;
 };
 
-/** `--sketch-fill` (spec "채움"). `invalid` keeps the text for the error message. */
+/** `--sketch-fill` (spec "Fills"). `invalid` keeps the text for the error message. */
 export type FillMode =
   | { readonly kind: 'mode'; readonly mode: 'solid' | 'rough' | 'marker' | 'hatch' }
   | { readonly kind: 'invalid'; readonly css: string };

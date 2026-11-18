@@ -108,7 +108,7 @@ The defaults go in a cascade layer under `:where()`, so your own styles always w
 
 ## Errors and warnings
 
-The messages are in **Korean**. Each one points at the declaration and says how to fix it.
+Each message points at the declaration and says how to fix it.
 
 **Errors** stop the build, because the drawing would be wrong otherwise:
 

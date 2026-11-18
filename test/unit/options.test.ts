@@ -58,7 +58,7 @@ describe('hatch options', () => {
     [{ pressureLength: 4 }, 'hatch.pressureLength'],
     [{ ends: 'round' }, 'hatch.ends'],
     [{ gap: '6px' }, 'hatch.gap'],
-    [{ spacing: 6 }, '알 수 없는 hatch 옵션: spacing'],
+    [{ spacing: 6 }, 'Unknown hatch option: spacing'],
   ])('rejects %j', (hatch, text) => {
     const result = resolveOptions({ hatch });
     expect(result.diagnostics.map((d) => d.message).join('\n')).toContain(text);
@@ -119,13 +119,13 @@ describe('base colours (M7a)', () => {
   });
 
   it.each([
-    [{ ink: 'var(--x)' }, 'base.ink는'],
-    [{ accent: 'currentColor' }, 'base.accent는'],
-    [{ ink: 12 }, 'base.ink는'],
-    [{ dark: { ink: 'nope' } }, 'base.dark.ink는'],
-    [{ colour: '#000' }, '알 수 없는 base 옵션: colour'],
-    [{ dark: { dark: {} } }, '알 수 없는 base.dark 옵션: dark'],
-    ['#000', 'base 옵션은 객체여야'],
+    [{ ink: 'var(--x)' }, 'base.ink must be'],
+    [{ accent: 'currentColor' }, 'base.accent must be'],
+    [{ ink: 12 }, 'base.ink must be'],
+    [{ dark: { ink: 'nope' } }, 'base.dark.ink must be'],
+    [{ colour: '#000' }, 'Unknown base option: colour'],
+    [{ dark: { dark: {} } }, 'Unknown base.dark option: dark'],
+    ['#000', 'base must be an object'],
   ])('rejects %j', (base, message) => {
     const result = resolveOptions({ base });
     expect(result.value.base).toBeUndefined();

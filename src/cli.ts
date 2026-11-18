@@ -1,4 +1,4 @@
-// The `sketchify` command (spec "배포와 품질 기준", M9): a thin layer over the plugin for sites
+// The `sketchify` command (spec "Distribution and quality", M9): a thin layer over the plugin for sites
 // without a build tool. Reads a shared `sketchify.config.js`; prints a size line and the warnings
 // per file. With src/index.ts, the only place that reads and writes files and the console.
 import { existsSync, readFileSync, realpathSync, watch } from 'node:fs';
@@ -64,7 +64,7 @@ type Flags = { readonly report: boolean };
 
 /** Converts every file of the plan once. Returns whether all of them worked. */
 const convertAll = async (plan: Plan, options: SketchifyOptions, io: CliIo, flags: Flags): Promise<boolean> => {
-  const show = (path: string | undefined): string => (path === undefined ? '<표준 출력>' : relative(io.cwd, path) || path);
+  const show = (path: string | undefined): string => (path === undefined ? '<stdout>' : relative(io.cwd, path) || path);
   const tell = (label: string, output: string | undefined, converted: Converted): void => {
     converted.warnings.forEach((w) => io.stderr(`${warningLine(label, w)}\n`));
     if (flags.report) io.stderr(`${reportLine(label, show(output), converted.report, converted.warnings.length)}\n`);
@@ -77,7 +77,7 @@ const convertAll = async (plan: Plan, options: SketchifyOptions, io: CliIo, flag
         await mkdir(dirname(plan.output), { recursive: true });
         await writeFile(plan.output, converted.css);
       }
-      tell('<표준 입력>', plan.output, converted);
+      tell('<stdin>', plan.output, converted);
       return true;
     } catch (error) {
       io.stderr(`${errorText(error)}\n`);
@@ -146,7 +146,7 @@ export const run = async (argv: ReadonlyArray<string>, io: CliIo): Promise<numbe
   }
   const config = configPath(io.cwd, values.config);
   if (values.config !== undefined && (config === undefined || !existsSync(config))) {
-    io.stderr(`설정 파일을 찾을 수 없습니다: ${values.config}\n`);
+    io.stderr(`Config file not found: ${values.config}\n`);
     return 2;
   }
   const flags: Flags = { report: values['no-report'] !== true };
@@ -155,7 +155,7 @@ export const run = async (argv: ReadonlyArray<string>, io: CliIo): Promise<numbe
       const options = config === undefined ? {} : await loadConfig(config);
       return (await convertAll(planned.plan, options, io, flags)) ? 0 : 1;
     } catch (error) {
-      io.stderr(`설정 파일을 읽지 못했습니다(${config}): ${errorText(error)}\n`);
+      io.stderr(`Could not read the config file (${config}): ${errorText(error)}\n`);
       return 2;
     }
   };
@@ -164,7 +164,7 @@ export const run = async (argv: ReadonlyArray<string>, io: CliIo): Promise<numbe
 
   // --watch: convert again when an input or the config changes, a burst of changes at a time.
   const files = [...planned.plan.pairs.map((pair) => pair.input), ...(config === undefined ? [] : [config])];
-  io.stderr('변경을 감시합니다. 끝내려면 Ctrl+C.\n');
+  io.stderr('Watching for changes. Press Ctrl+C to stop.\n');
   const pending: { timer?: ReturnType<typeof setTimeout> } = {};
   const watchers = files.map((file) =>
     watch(file, () => {

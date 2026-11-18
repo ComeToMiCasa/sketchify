@@ -1,4 +1,4 @@
-// Form control drawings for `@sketchify base` (spec "폼 요소와 @sketchify base", M7a). Pure.
+// Form control drawings for `@sketchify base` (spec "Form controls and @sketchify base", M7a). Pure.
 // Ported from prototypes/showcase/gen.mjs checkbox(), radio() and chevron(). Each is drawn on an
 // 18×18 (16×14 for the arrow) canvas and scaled to the control with `background-size: 100% 100%`.
 import rough from 'roughjs';
