@@ -82,25 +82,6 @@ body.dragging { cursor: ew-resize; user-select: none; }
 .dock__btn[aria-pressed='true'] { background: var(--yellow); border-color: var(--ink); font-weight: 700; }
 .dock__btn:focus-visible { outline: 3px solid #3355ff; outline-offset: 2px; }
 
-/* The font disclaimer, small, in the corner. */
-.note {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  max-width: 260px;
-  margin: 0;
-  padding: 6px 8px;
-  font-size: 11px;
-  line-height: 1.4;
-  background: var(--paper);
-  border: 2px solid var(--ink);
-  z-index: 3;
-}
-
-@media (max-width: 900px) {
-  .note { right: auto; left: 50%; bottom: 72px; transform: translateX(-50%); max-width: none; width: max-content; max-width: calc(100vw - 32px); }
-}
-
 @media (max-width: 640px) {
   .divider__tag { top: 72px; }
   .dock__label { display: none; }
