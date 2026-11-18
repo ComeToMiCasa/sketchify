@@ -125,7 +125,8 @@ a.ulink:hover { color: var(--red); }
 .fill { padding: 8px 14px; font: 700 15px/1 var(--mono); }
 .fill.fill--rough { background-color: var(--yellow); --sketch-fill: rough; }
 .fill.fill--marker { background-color: var(--yellow); --sketch-fill: marker; }
-.fill.fill--hatch { background-color: var(--blue-soft); border: 2px solid var(--ink); --sketch-fill: hatch; }
+/* A known size and no border: the hatch is drawn line by line, each stroke ending unevenly. */
+.fill.fill--hatch { width: 96px; height: 40px; display: grid; place-items: center; background-color: var(--blue-soft); --sketch-fill: hatch; }
 
 .rule { margin: 4px 0; border: 0; border-top: 3px solid var(--ink); }
 .small { font: 14px/1 var(--mono); }

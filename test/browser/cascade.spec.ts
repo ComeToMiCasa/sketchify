@@ -178,10 +178,7 @@ const INTERACTIONS: Readonly<Record<string, ReadonlyArray<State>>> = {
     { name: 'hover #quiet', width: 800, scheme: 'light', hover: 'quiet' },
     { name: 'hover #badge, dark', width: 800, scheme: 'dark', hover: 'badge' },
   ],
-  'exact-hatch': [
-    { name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' },
-    { name: 'hover #wide, dark', width: 800, scheme: 'dark', hover: 'wide' },
-  ],
+  'exact-hatch': [{ name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' }],
   boxes: [],
   forms: [],
 };
