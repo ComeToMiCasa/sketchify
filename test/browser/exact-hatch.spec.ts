@@ -3,7 +3,7 @@ import { HATCH_PRESETS } from '../../src/options';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
 import { SAME, difference, inkMask } from './lib/ink';
-import { type Rect, type Rgb, type Screenshot, pixelAt, rectOf, screenshot } from './lib/pixels';
+import { type Rect, type Rgb, type Screenshot, pixelAt, rectOf, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // Reads pixels of the M6c example page (test/pages/exact-hatch): elements of known size, whose
@@ -22,7 +22,7 @@ const dark: Ink = ([r, g, b]) => r < 110 && g < 110 && b < 130 && Math.max(r, g,
 const shoot = async (p: Page, css: string, scheme: 'light' | 'dark' = 'light'): Promise<Screenshot> => {
   await p.emulateMedia({ colorScheme: scheme });
   await render(p, page.html, css);
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   return screenshot(p);
 };
 
@@ -111,7 +111,7 @@ test.describe('M6c exact hatch', () => {
   test('hover and dark mode change the hatch colour', async ({ page: p }) => {
     await shoot(p, await transformed());
     const card = await rectOf(p, '#card1');
-    await p.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+    await moveAndSettle(p, card.x + card.width / 2, card.y + card.height / 2);
     // The hover drawing is a large SVG; under load WebKit can take a few frames to swap it in, so
     // shoot again until it shows (the expectations below are unchanged).
     await expect.poll(async () => share(inside(await screenshot(p), card, 6), green), { timeout: 3000 }).toBeGreaterThan(0.3);

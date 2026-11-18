@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
 import { SAME, difference, inkMask } from './lib/ink';
-import { type Rect, type Rgb, type Screenshot, pixelAt, rectOf, screenshot } from './lib/pixels';
+import { type Rect, type Rgb, type Screenshot, pixelAt, rectOf, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // `@sketchify base` (M7a) on test/pages/base: unstyled form controls and hr. Ink #1d2433, accent
@@ -20,7 +20,7 @@ const amber: Ink = ([r, g, b]) => r - b > 100 && g - b > 50;
 const shoot = async (p: Page, css: string, scheme: 'light' | 'dark' = 'light'): Promise<Screenshot> => {
   await p.emulateMedia({ colorScheme: scheme });
   await render(p, page.html, css);
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   return screenshot(p);
 };
 
@@ -151,9 +151,9 @@ test.describe('M7a @sketchify base', () => {
     const tint = (s: Screenshot) => pixelAt(s, btn.x + 3, btn.y + btn.height / 2)[0];
     const rest = tint(shot);
     expect(rest).toBeLessThan(250);
-    await p.mouse.move(btn.x + btn.width / 2, btn.y + 2);
+    await moveAndSettle(p, btn.x + btn.width / 2, btn.y + 2);
     expect(tint(await screenshot(p)), 'darker on hover').toBeLessThan(rest);
-    await p.mouse.move(0, 0);
+    await moveAndSettle(p, 0, 0);
     for (let i = 0; i < 20 && (await p.evaluate(() => document.activeElement?.id ?? '')) !== 'btn'; i += 1) await p.keyboard.press('Tab');
     if ((await p.evaluate(() => document.activeElement?.id)) !== 'btn') await p.focus('#btn');
     expect(await p.$eval('#btn', (el) => getComputedStyle(el).outlineStyle)).toBe('none');

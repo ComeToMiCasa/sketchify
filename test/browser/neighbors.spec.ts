@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
 import { type Ink, SAME, blue, difference, inkMask, red } from './lib/ink';
-import { type Screenshot, pixelAt, rectOf, screenshot } from './lib/pixels';
+import { type Screenshot, pixelAt, rectOf, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // Reads pixels of the M2 example page (test/pages/neighbors): the same border on many
@@ -12,7 +12,7 @@ const page = loadPage('neighbors');
 
 const shoot = async (p: Page): Promise<Screenshot> => {
   await render(p, page.html, await transform(page.css, {}, page.cssPath));
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   return screenshot(p);
 };
 
@@ -67,9 +67,9 @@ test.describe('M2 neighbouring elements get different drawings', () => {
     await render(p, page.html, await transform(page.css, {}, page.cssPath));
     for (const id of ['hb1', 'hb2', 'hb3']) {
       const rect = await rectOf(p, `#${id}`);
-      await p.mouse.move(0, 0);
+      await moveAndSettle(p, 0, 0);
       const before = inkMask(await screenshot(p), rect, red);
-      await p.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      await moveAndSettle(p, rect.x + rect.width / 2, rect.y + rect.height / 2);
       const shot = await screenshot(p);
       const after = inkMask(shot, rect, blue);
       expect(inkMask(shot, rect, red).size, `${id}: no red left on hover`).toBe(0);

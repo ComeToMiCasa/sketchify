@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
-import { type Rect, type Rgb, type Screenshot, pixelAt, screenshot } from './lib/pixels';
+import { type Rect, type Rgb, type Screenshot, pixelAt, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // Reads pixels of the M6d example page (test/pages/underline): underlines drawn as a border image
@@ -19,7 +19,7 @@ const amber: Ink = ([r, g, b]) => r - b > 100 && g - b > 50;
 const shoot = async (p: Page, css: string, scheme: 'light' | 'dark' = 'light'): Promise<Screenshot> => {
   await p.emulateMedia({ colorScheme: scheme });
   await render(p, page.html, css);
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   return screenshot(p);
 };
 
@@ -71,14 +71,14 @@ test.describe('M6d underlines', () => {
     await shoot(p, await transformed());
     const [home] = await fragments(p, 'short1');
     if (!home) throw new Error('#short1 missing');
-    await p.mouse.move(home.x + home.width / 2, home.y + home.height / 2);
+    await moveAndSettle(p, home.x + home.width / 2, home.y + home.height / 2);
     expect(underlined(await screenshot(p), home, green), 'green on hover').toBeGreaterThan(0.85);
     // No underline on hover: the same as the original CSS hovered.
     const hoverQuiet = async (css: string): Promise<number> => {
       await shoot(p, css);
       const [quiet] = await fragments(p, 'quiet');
       if (!quiet) throw new Error('#quiet missing');
-      await p.mouse.move(quiet.x + quiet.width / 2, quiet.y + quiet.height / 2);
+      await moveAndSettle(p, quiet.x + quiet.width / 2, quiet.y + quiet.height / 2);
       return underlined(await screenshot(p), quiet, green);
     };
     const original = await hoverQuiet(page.css);

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
 import { type Ink, SAME, blue, difference, green, red } from './lib/ink';
-import { type Rect, type Screenshot, pixelAt, rectOf, screenshot } from './lib/pixels';
+import { type Rect, type Screenshot, pixelAt, rectOf, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // Reads pixels of the M5 example page (test/pages/lines): one-sided lines must reach both ends
@@ -32,7 +32,7 @@ const LINES: ReadonlyArray<Line> = [
 const shoot = async (p: Page, scheme: 'light' | 'dark' = 'light'): Promise<Screenshot> => {
   await p.emulateMedia({ colorScheme: scheme });
   await render(p, page.html, await transform(page.css, {}, page.cssPath));
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   return screenshot(p);
 };
 
@@ -152,7 +152,7 @@ test.describe('M5 one-sided lines', () => {
     const rect = await rectOf(p, `#${li.id}`);
     const lightMask = bandMask(light, rect, li, red);
 
-    await p.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    await moveAndSettle(p, rect.x + rect.width / 2, rect.y + rect.height / 2);
     const hovered = await screenshot(p);
     expect(bandMask(hovered, rect, li, red).size, 'no red on hover').toBe(0);
     expect(difference(bandMask(hovered, rect, li, blue), lightMask), 'same shape on hover').toBeLessThan(SAME);
@@ -171,7 +171,7 @@ test.describe('M5 one-sided lines', () => {
 test('stretching the whole line instead of fixing its ends is caught', async ({ page: p }) => {
   const stretched = (await transform(page.css, {}, page.cssPath)).replace('0 16 11 16 / 0 16px 11px 16px', '0 0 11 0 / 0 0 11px 0');
   await render(p, page.html, stretched);
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   const shot = await screenshot(p);
   const line = LINES[0];
   if (!line) throw new Error('no line');

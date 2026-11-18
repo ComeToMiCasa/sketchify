@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
 import { SAME, difference } from './lib/ink';
-import { type Rect, type Rgb, type Screenshot, pixelAt, rectOf, screenshot } from './lib/pixels';
+import { type Rect, type Rgb, type Screenshot, pixelAt, rectOf, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // Reads pixels of the M6b example page (test/pages/hatch): a repeated hatch tile as the
@@ -18,7 +18,7 @@ const amber: Ink = ([r, g, b]) => r - b > 100 && g - b > 50;
 const shoot = async (p: Page, css: string, scheme: 'light' | 'dark' = 'light'): Promise<Screenshot> => {
   await p.emulateMedia({ colorScheme: scheme });
   await render(p, page.html, css);
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   return screenshot(p);
 };
 
@@ -94,7 +94,7 @@ test.describe('M6b hatch fill', () => {
   test('hover and dark mode change the hatch colour', async ({ page: p }) => {
     await shoot(p, await transformed());
     const card = await rectOf(p, '#card1');
-    await p.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+    await moveAndSettle(p, card.x + card.width / 2, card.y + card.height / 2);
     const hovered = await screenshot(p);
     expect(share(pixelsIn(hovered, card, 4), green), 'green hatch on hover').toBeGreaterThan(0.2);
     expect(share(pixelsIn(hovered, card, 4), blue), 'no blue on hover').toBe(0);
