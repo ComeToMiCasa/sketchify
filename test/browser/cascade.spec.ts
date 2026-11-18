@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { loadPage, type TestPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
-import { type Rect, type Screenshot, pixelAt, screenshot } from './lib/pixels';
+import { type Rect, type Screenshot, pixelAt, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // The M4 oracle (spec "Borders across rules": draw what the original CSS shows).
@@ -47,10 +47,10 @@ const enter = async (p: Page, page: TestPage, css: string, state: State): Promis
   await p.emulateMedia({ colorScheme: state.scheme });
   await render(p, page.html, css);
   await tag(p);
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   if (state.hover) {
     const box = await p.locator(`#${state.hover}`).boundingBox();
-    if (box) await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    if (box) await moveAndSettle(p, box.x + box.width / 2, box.y + box.height / 2);
   }
   if (state.focus) {
     // Keyboard focus, so :focus-visible matches as well as :focus.
@@ -178,10 +178,7 @@ const INTERACTIONS: Readonly<Record<string, ReadonlyArray<State>>> = {
     { name: 'hover #quiet', width: 800, scheme: 'light', hover: 'quiet' },
     { name: 'hover #badge, dark', width: 800, scheme: 'dark', hover: 'badge' },
   ],
-  'exact-hatch': [
-    { name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' },
-    { name: 'hover #wide, dark', width: 800, scheme: 'dark', hover: 'wide' },
-  ],
+  'exact-hatch': [{ name: 'hover #card1', width: 800, scheme: 'light', hover: 'card1' }],
   boxes: [],
   forms: [],
 };

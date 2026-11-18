@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
-import { type Rect, type Rgb, type Screenshot, pixelAt, rectOf, screenshot } from './lib/pixels';
+import { type Rect, type Rgb, type Screenshot, pixelAt, rectOf, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // Reads pixels of the M1 example page (test/pages/sketch) to check where the drawing
@@ -64,7 +64,7 @@ const changedPixels = (a: Screenshot, b: Screenshot, rect: Rect): number => {
 
 const shoot = async (p: Page, css: string): Promise<Screenshot> => {
   await render(p, page.html, css);
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   return screenshot(p);
 };
 
@@ -108,7 +108,7 @@ test.describe('M1 borders are drawn where the border is', () => {
     const hovered = async (css: string): Promise<readonly [Screenshot, Rect]> => {
       await render(p, page.html, css);
       const rect = await rectOf(p, '#btn');
-      await p.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      await moveAndSettle(p, rect.x + rect.width / 2, rect.y + rect.height / 2);
       return [await screenshot(p), rect];
     };
     const [original] = await hovered(page.css);

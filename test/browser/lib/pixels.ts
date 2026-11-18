@@ -19,11 +19,54 @@ export const decodePng = (buffer: Uint8Array): Screenshot => {
 };
 
 /**
- * Waits two animation frames: styles changed by a hover, focus or click are then painted. Without it,
- * WebKit under load was sometimes captured before repainting a hover's new `border-image`.
+ * Waits until the page is painted as styled: every image a computed `border-image-source` or
+ * `background-image` uses (the drawings) is decoded, then two animation frames pass. Without it,
+ * WebKit under load was sometimes captured before painting a hover's new drawing, or with a large
+ * drawing not yet decoded.
  */
 export const settle = (page: Page): Promise<void> =>
-  page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  page.evaluate(async () => {
+    const urls = new Set<string>();
+    document.querySelectorAll('*').forEach((el) => {
+      const style = getComputedStyle(el);
+      [style.borderImageSource, style.backgroundImage].forEach((value) => {
+        for (const match of value.matchAll(/url\("([^"]*)"\)/g)) if (match[1]) urls.add(match[1]);
+      });
+    });
+    await Promise.all(
+      [...urls].map((src) => {
+        const img = new Image();
+        img.src = src;
+        return img.decode().catch(() => undefined);
+      }),
+    );
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+
+/**
+ * Moves the mouse and waits until the page shows it. Under load, WebKit sometimes misses a mouse
+ * move (the element under the pointer never gets `:hover`), so this checks that it did, moving off
+ * by 1px and back if not; then it waits until two full-page screenshots in a row are the same, since
+ * a hover can swap in a large SVG that takes several frames to paint. At most 10 tries each.
+ */
+export const moveAndSettle = async (page: Page, x: number, y: number): Promise<void> => {
+  const hovered = (): Promise<boolean> =>
+    page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.matches(':hover') ?? true, [x, y] as const);
+  const point = async (tries: number): Promise<void> => {
+    await page.mouse.move(x, y);
+    await settle(page);
+    if ((await hovered()) || tries <= 1) return;
+    await page.mouse.move(x + 1, y + 1);
+    await point(tries - 1);
+  };
+  const steady = async (previous: Buffer, tries: number): Promise<void> => {
+    await settle(page);
+    const next = await page.screenshot({ fullPage: true });
+    if (!previous.equals(next) && tries > 1) await steady(next, tries - 1);
+  };
+  await point(10);
+  await steady(await page.screenshot({ fullPage: true }), 10);
+};
 
 /** Full-page screenshot, after the page has settled; pixel coordinates are document coordinates (device scale 1). */
 export const screenshot = async (page: Page): Promise<Screenshot> => {

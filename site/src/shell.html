@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sketchify.js</title>
+<meta name="description" content="postcss-sketchify turns the borders, fills and underlines of plain CSS into hand-drawn sketches at build time, without moving a pixel of layout.">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="tag.css">
+</head>
+<body>
+<div class="stage" id="stage">
+  <!-- The same page twice: the original CSS underneath, the sketched CSS on top, cut at the divider. -->
+  <iframe class="layer" id="raw" src="raw.html" title="The page with its original CSS" aria-hidden="true" tabindex="-1" scrolling="no"></iframe>
+  <iframe class="layer layer--sketch" id="sketch" src="sketch-normal.html" title="postcss-sketchify" scrolling="no"></iframe>
+</div>
+
+<div class="divider" id="divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Divider between the original and the sketched CSS" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+  <span class="divider__line" aria-hidden="true"></span>
+  <span class="divider__tag divider__tag--raw" aria-hidden="true">raw CSS</span>
+  <span class="divider__tag divider__tag--sketch" aria-hidden="true">sketchified</span>
+  <span class="divider__grip" aria-hidden="true"><span>&lsaquo;</span><span>&rsaquo;</span></span>
+</div>
+
+<div class="dock" role="group" aria-label="Roughness of the sketch">
+  <span class="dock__label">roughness</span>
+  <button class="dock__btn" type="button" data-roughness="subtle" aria-pressed="false">subtle</button>
+  <button class="dock__btn" type="button" data-roughness="normal" aria-pressed="true">normal</button>
+  <button class="dock__btn" type="button" data-roughness="messy" aria-pressed="false">messy</button>
+</div>
+
+<script type="module" src="shell.js"></script>
+</body>
+</html>

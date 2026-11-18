@@ -1,0 +1,13 @@
+/* The "sketchified" tag on the divider, run through postcss-sketchify (roughness normal) at build
+ * time like the page itself, in the page's handwritten font. */
+@font-face { font-family: 'Monaspace Radon'; src: url('fonts/MonaspaceRadon-Bold.woff2') format('woff2'); font-weight: 700; font-display: block; }
+
+.divider__tag.divider__tag--sketch {
+  font-family: 'Monaspace Radon', ui-monospace, Menlo, monospace;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  border: 2px solid #111111;
+  background-color: #ffd23f;
+  --sketch-fill: rough;
+}

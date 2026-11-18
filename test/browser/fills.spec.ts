@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { loadPage } from '../helpers/pages';
 import { transform } from '../helpers/transform';
 import { SAME, difference } from './lib/ink';
-import { type Rect, type Rgb, type Screenshot, near, pixelAt, rectOf, screenshot } from './lib/pixels';
+import { type Rect, type Rgb, type Screenshot, near, pixelAt, rectOf, screenshot, moveAndSettle } from './lib/pixels';
 import { render } from './lib/render';
 
 // Reads pixels of the M6a example page (test/pages/fills): rough and marker fills.
@@ -19,7 +19,7 @@ const WHITE: Rgb = [255, 255, 255];
 const shoot = async (p: Page, css: string, scheme: 'light' | 'dark' = 'light'): Promise<Screenshot> => {
   await p.emulateMedia({ colorScheme: scheme });
   await render(p, page.html, css);
-  await p.mouse.move(0, 0);
+  await moveAndSettle(p, 0, 0);
   return screenshot(p);
 };
 
@@ -99,7 +99,7 @@ test.describe('M6a rough and marker fills', () => {
   test('hover redraws the fill in the hover colour; a modifier keeps the original background', async ({ page: p }) => {
     await shoot(p, await transformed());
     const btn = await rectOf(p, '#btn1');
-    await p.mouse.move(btn.x + 4, btn.y + btn.height / 2);
+    await moveAndSettle(p, btn.x + 4, btn.y + btn.height / 2);
     const hovered = await screenshot(p);
     const pixels = inside(hovered, btn, 6).filter((px) => !(px[0] < 120 && px[1] < 120 && px[2] < 120));
     expect(share(pixels, GREEN), 'hover colour').toBeGreaterThanOrEqual(0.9);
