@@ -6,7 +6,7 @@ const FREEZE = '*, *::before, *::after { animation: none !important; transition:
 /** Loads a test page's body HTML with the given CSS and waits for fonts. */
 export const render = async (page: Page, html: string, css: string): Promise<void> => {
   await page.setContent(
-    `<!doctype html><html lang="ko"><head><meta charset="utf-8"><style>${css}</style><style>${FREEZE}</style></head><body>${html}</body></html>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><style>${css}</style><style>${FREEZE}</style></head><body>${html}</body></html>`,
   );
   await page.evaluate(async () => {
     await document.fonts.ready;

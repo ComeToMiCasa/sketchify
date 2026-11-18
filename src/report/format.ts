@@ -18,50 +18,52 @@ export type CliArgs = {
 
 /** The plan for the arguments, or the reason they do not fit together. Paths are resolved against `cwd`. */
 export const planOf = (args: CliArgs, cwd: string): { readonly plan: Plan } | { readonly error: string } => {
-  if (args.out !== undefined && args.dir !== undefined) return { error: '`-o`와 `-d`는 함께 쓸 수 없습니다.' };
+  if (args.out !== undefined && args.dir !== undefined) return { error: '`-o` and `-d` cannot be used together.' };
   if (args.inputs.length === 0) {
-    if (args.watch) return { error: '`--watch`에는 입력 파일이 필요합니다(표준 입력은 감시할 수 없음).' };
-    if (args.dir !== undefined) return { error: '`-d`에는 입력 파일이 필요합니다.' };
+    if (args.watch) return { error: '`--watch` needs input files (standard input cannot be watched).' };
+    if (args.dir !== undefined) return { error: '`-d` needs input files.' };
     return { plan: args.out === undefined ? { kind: 'pipe' } : { kind: 'pipe', output: resolve(cwd, args.out) } };
   }
-  if (args.inputs.length > 1 && args.dir === undefined) return { error: '입력 파일이 여러 개면 출력 폴더 `-d <폴더>`가 필요합니다.' };
-  if (args.watch && args.out === undefined && args.dir === undefined) return { error: '`--watch`에는 출력(`-o` 또는 `-d`)이 필요합니다.' };
+  if (args.inputs.length > 1 && args.dir === undefined) return { error: 'Several input files need an output folder: `-d <dir>`.' };
+  if (args.watch && args.out === undefined && args.dir === undefined) return { error: '`--watch` needs an output (`-o` or `-d`).' };
   const pairs = args.inputs.map((input) => {
     const from = resolve(cwd, input);
     const to = args.dir !== undefined ? join(resolve(cwd, args.dir), basename(input)) : args.out !== undefined ? resolve(cwd, args.out) : undefined;
     return { input: from, output: to };
   });
   const same = pairs.find((pair) => pair.output === pair.input);
-  if (same) return { error: `출력이 입력 파일과 같습니다: ${same.input}. 원본을 덮어쓰지 않도록 다른 경로를 주세요.` };
+  if (same) return { error: `The output is the input file: ${same.input}. Give another path so the original is not overwritten.` };
   return { plan: { kind: 'files', pairs } };
 };
 
 const kb = (bytes: number): string => `${(bytes / 1024).toFixed(1)}KB`;
 
-/** One line per file: `a.css → out/a.css  gzip +12.3KB, 그림 120장(조합 3), 경고 2`. */
+const count = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+/** One line per file: `a.css → out/a.css  gzip +12.3KB, 120 drawings (3 combos), 2 warnings`. */
 export const reportLine = (input: string, output: string, report: SizeReport | undefined, warnings: number): string => {
-  const size = report ? `gzip +${kb(report.after.gzip - report.before.gzip)}, 그림 ${report.drawings}장(조합 ${report.comboRules})` : '';
-  return `${input} → ${output}  ${[size, `경고 ${warnings}`].filter((part) => part !== '').join(', ')}`;
+  const size = report ? `gzip +${kb(report.after.gzip - report.before.gzip)}, ${count(report.drawings, 'drawing')} (${count(report.comboRules, 'combo')})` : '';
+  return `${input} → ${output}  ${[size, count(warnings, 'warning')].filter((part) => part !== '').join(', ')}`;
 };
 
 /** A warning with its place: `a.css:12:3 [sketchify:style] …`. */
 export const warningLine = (file: string, warning: { readonly line?: number; readonly column?: number; readonly text: string }): string =>
   `${file}${warning.line === undefined ? '' : `:${warning.line}:${warning.column ?? 1}`} ${warning.text}`;
 
-export const HELP = `사용법: sketchify <파일…> [-o 출력.css | -d 출력폴더] [--watch] [--config 경로] [--no-report]
+export const HELP = `Usage: sketchify <files…> [-o out.css | -d outdir] [--watch] [--config path] [--no-report]
 
-  sketchify style.css -o style.sketch.css   파일 하나
-  sketchify a.css b.css -d dist             여러 파일을 폴더로(이름 그대로)
-  cat style.css | sketchify > out.css       표준 입력 → 표준 출력
-  sketchify style.css -o out.css --watch    바뀔 때마다 다시 변환
+  sketchify style.css -o style.sketch.css   one file
+  sketchify a.css b.css -d dist             several files into a folder (same names)
+  cat style.css | sketchify > out.css       standard input to standard output
+  sketchify style.css -o out.css --watch    convert again on every change
 
-  -o, --out <파일>      출력 파일 (입력이 하나일 때)
-  -d, --dir <폴더>      출력 폴더 (입력이 여럿일 때)
-  -w, --watch           입력·설정 파일이 바뀌면 다시 변환
-  -c, --config <경로>   설정 파일 (기본: 현재 폴더의 sketchify.config.js, .mjs, .cjs)
-      --no-report       파일마다의 크기 보고 줄을 끔 (경고는 그대로)
-  -h, --help            이 도움말
-  -v, --version         버전
+  -o, --out <file>      output file (one input)
+  -d, --dir <dir>       output folder (several inputs)
+  -w, --watch           convert again when an input or the config changes
+  -c, --config <path>   config file (default: sketchify.config.js, .mjs or .cjs in the current folder)
+      --no-report       leave out the size line per file (warnings stay)
+  -h, --help            this help
+  -v, --version         the version
 
-설정 파일은 플러그인 옵션 객체를 기본으로 내보냅니다(export default { roughness: 'messy' }).
+The config file's default export is the plugin options (export default { roughness: 'messy' }).
 `;

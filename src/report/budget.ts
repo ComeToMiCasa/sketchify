@@ -1,4 +1,4 @@
-// CSS size report and budget (spec "용량 예산", M8). Pure: strings and numbers in, a report out.
+// CSS size report and budget (spec "Size budget", M8). Pure: strings and numbers in, a report out.
 // Compression is only measured (node:zlib), nothing is read or written. gzip only: brotli at its
 // usual quality takes 250–400ms on a large output, on every build.
 import { gzipSync } from 'node:zlib';
@@ -70,8 +70,8 @@ export const overBudget = (report: SizeReport, budgetKb: number): string | undef
   if (added <= budgetKb * 1024) return undefined;
   const top = report.top.map((c) => `${c.selector}${c.at ? ` (${c.at})` : ''} ${kb(c.bytes)}`).join(', ');
   return (
-    `[sketchify:budget] 손그림으로 CSS가 gzip ${kb(added)} 늘었습니다(예산 ${budgetKb}KB). ` +
-    `원본 ${kb(report.before.raw)} → ${kb(report.after.raw)}, 그림 ${report.drawings}장(조합 규칙 ${report.comboRules}개가 쓰는 그림 ${report.comboDrawings}장). ` +
-    `많이 늘린 규칙(원본 기준): ${top}. 예산은 옵션 \`budget: { gzip: KB }\`로 바꾸거나 \`budget: false\`로 끕니다.`
+    `[sketchify:budget] The sketches added ${kb(added)} gzip to the CSS (budget ${budgetKb}KB). ` +
+    `Raw ${kb(report.before.raw)} → ${kb(report.after.raw)}, ${report.drawings} drawings (${report.comboDrawings} of them for ${report.comboRules} combination rules). ` +
+    `Rules that added the most (in the source): ${top}. Change the budget with the option \`budget: { gzip: KB }\`, or turn it off with \`budget: false\`.`
   );
 };

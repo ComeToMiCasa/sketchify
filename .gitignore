@@ -4,3 +4,6 @@ test-results/
 playwright-report/
 .DS_Store
 .tuner/
+
+# Work log, kept locally
+docs/progress.md

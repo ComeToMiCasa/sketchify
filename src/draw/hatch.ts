@@ -1,4 +1,4 @@
-// Hatch fills (spec "채움", "크기 처리"). Pure. The repeated tile for elements of unknown size (M6b),
+// Hatch fills (spec "Fills", "Element sizes"). Pure. The repeated tile for elements of unknown size (M6b),
 // and the exact hatch for elements of known size (M6c, below).
 // Ported from prototypes/fills.mjs penHatchTile(): pen strokes laid down at 45°, nearly
 // straight, one gentle bow each, a per-stroke weight, and pressure that swells and thins along

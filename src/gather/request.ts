@@ -1,4 +1,4 @@
-// From a resolved border state to a drawing request (spec "그리는 테두리와 그대로 두는 테두리"). Pure.
+// From a resolved border state to a drawing request (spec "Borders drawn and borders left alone"). Pure.
 import { type LineSide, type NineSliceInput, type StripInput, exactFits, geometryFor } from '../draw/stroke';
 import { type ResolvedOptions, hatchOf } from '../options';
 import type { BorderState, Declared } from '../read/collect';
@@ -8,7 +8,7 @@ import type { Condition } from '../read/variables';
 
 export type NineSliceRequest = NineSliceInput & { readonly kind: 'nine-slice' };
 
-/** A one-sided line (spec "한 변 border, hr, 밑줄"). */
+/** A one-sided line (spec "One-sided borders, hr, underlines"). */
 export type StripRequest = StripInput & { readonly kind: 'strip' };
 
 export type DrawRequest = NineSliceRequest | StripRequest | UnderlineRequest;
@@ -20,7 +20,7 @@ export type ConditionVariant = {
   readonly request: DrawRequest | undefined;
 };
 
-/** The three seeds of the neighbour variants (spec "이웃 요소 변형"), from prototypes/showcase. */
+/** The three seeds of the neighbour variants (spec "Neighbour variants"), from prototypes/showcase. */
 export const SEEDS = [11, 23, 37] as const;
 
 const allSame = <T>(values: ReadonlyArray<T>, key: (value: T) => string): T | undefined => {
@@ -111,7 +111,7 @@ const fillMode = (border: BorderState): 'rough' | 'marker' | undefined =>
   border.fill.kind === 'mode' && (border.fill.mode === 'rough' || border.fill.mode === 'marker') ? border.fill.mode : undefined;
 
 /**
- * A drawing with its fill (spec "채움", M6a). Without a rough/marker fill, a background colour
+ * A drawing with its fill (spec "Fills", M6a). Without a rough/marker fill, a background colour
  * or with a background image, it is the border drawing alone and the original background stays.
  * A fill goes with a four-sided border or no border; with anything else (a one-sided line,
  * dashes, a large radius) nothing is drawn and the original CSS shows.
@@ -158,7 +158,7 @@ const borderWidthOf = (border: BorderState, side: Side): number | undefined => {
 };
 
 /**
- * The element's border-box size (spec "크기 처리"), or undefined when the CSS does not say it in px.
+ * The element's border-box size (spec "Element sizes"), or undefined when the CSS does not say it in px.
  * `--sketch-size` wins. Otherwise px `width` and `height`; with `box-sizing: content-box` (the
  * default) the px paddings (unset: 0) and border widths are added.
  */
@@ -181,7 +181,7 @@ export const sizeOf = (border: BorderState): { readonly width: number; readonly 
 };
 
 /**
- * An exact hatch (spec "채움", M6c): `--sketch-fill: hatch` on an element of known size, with a
+ * An exact hatch (spec "Fills", M6c): `--sketch-fill: hatch` on an element of known size, with a
  * four-sided drawn border or no border, a literal colour, no background image, not too big, and big
  * enough for its corner slices. Anything else gets the repeated hatch (M6b) or nothing.
  */
@@ -278,7 +278,7 @@ export const asksForUnderline = (border: BorderState): boolean =>
   border.text.line.kind === 'lines' && border.text.line.lines.length === 1 && border.text.line.lines[0] === 'underline';
 
 /**
- * The underline drawn with `border-image` (spec "한 변 border, hr, 밑줄"): one solid underline on
+ * The underline drawn with `border-image` (spec "One-sided borders, hr, underlines"): one solid underline on
  * an inline element (by its type, or `display: inline`) without a border of its own (the drawing
  * takes the border image), in a colour known at build time (`text-decoration-color`, else
  * `color`). Anything else keeps the browser's underline.

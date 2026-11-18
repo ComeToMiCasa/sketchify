@@ -106,7 +106,7 @@
 :where(:nth-child(3n+3) > :nth-child(3n+2) > :nth-child(3n+3)) { --sk: var(--sk-2); }
 :where(:nth-child(3n+3) > :nth-child(3n+3) > :nth-child(3n+1)) { --sk: var(--sk-1); }
 :where(:nth-child(3n+3) > :nth-child(3n+3) > :nth-child(3n+2)) { --sk: var(--sk-2); }
-/* M5 example: one-sided lines (spec "한 변 border, hr, 밑줄").
+/* M5 example: one-sided lines (spec "One-sided borders, hr, underlines").
    Light: red #e5484d, list hover blue #3b82f6. Dark: green #22c55e. */
 :root { --line: #e5484d; --accent: #3b82f6; }
 @media (prefers-color-scheme: dark) {

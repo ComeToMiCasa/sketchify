@@ -10,13 +10,13 @@ type Slider = { readonly key: Numeric; readonly label: string; readonly min: num
 
 /** The two the presets differ in first, then the rest of the hatch options. */
 const SLIDERS: ReadonlyArray<Slider> = [
-  { key: 'weight', label: '굵기 weight (px)', min: 0.5, max: 16, step: 0.1 },
-  { key: 'gap', label: '간격 gap (px)', min: 2, max: 40, step: 0.5 },
-  { key: 'weightJitter', label: '선마다 굵기 차이 weightJitter (±px)', min: 0, max: 1.5, step: 0.05 },
-  { key: 'pressure', label: '필압 변화 pressure (±비율)', min: 0, max: 0.5, step: 0.005 },
-  { key: 'pressureLength', label: '필압 길이 pressureLength (px)', min: 40, max: 320, step: 2 },
-  { key: 'bow', label: '휨 bow (px)', min: 0, max: 2, step: 0.05 },
-  { key: 'over', label: '선 끝이 테두리 밖으로 나가는 거리 over (px, 크기를 아는 요소)', min: 0, max: 10, step: 0.5 },
+  { key: 'weight', label: 'weight (px)', min: 0.5, max: 16, step: 0.1 },
+  { key: 'gap', label: 'gap (px)', min: 2, max: 40, step: 0.5 },
+  { key: 'weightJitter', label: 'weight difference between lines, weightJitter (±px)', min: 0, max: 1.5, step: 0.05 },
+  { key: 'pressure', label: 'pressure change, pressure (± ratio)', min: 0, max: 0.5, step: 0.005 },
+  { key: 'pressureLength', label: 'pressure length, pressureLength (px)', min: 40, max: 320, step: 2 },
+  { key: 'bow', label: 'bow (px)', min: 0, max: 2, step: 0.05 },
+  { key: 'over', label: 'how far line ends reach outside the border, over (px, elements of known size)', min: 0, max: 10, step: 0.5 },
 ];
 
 const PRESET_NAMES = Object.keys(HATCH_PRESETS) as ReadonlyArray<HatchPreset>;
@@ -72,7 +72,7 @@ const render = (): void => {
     el.style.borderImage = `${drawNineSlice(request).url} ${placement.slice} / ${placement.width} / ${placement.outset} stretch`;
   });
   const share = Math.min(1, (values.weight * Math.SQRT2) / values.gap);
-  byId('info').textContent = `타일 ${tile.size}px · 잉크 비율 약 ${Math.round(share * 100)}% · 타일 크기 ${(tile.url.length / 1024).toFixed(1)}KB (원본)`;
+  byId('info').textContent = `tile ${tile.size}px · ink about ${Math.round(share * 100)}% · tile size ${(tile.url.length / 1024).toFixed(1)}KB (raw)`;
   const name = byId<HTMLSelectElement>('target').value;
   byId('code').textContent = presetCode(name, values);
   byId('option').textContent = `hatch: { weight: ${round(values.weight)}, gap: ${round(values.gap)} }`;

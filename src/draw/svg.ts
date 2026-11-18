@@ -12,7 +12,7 @@ const NUMBER = /-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
 export const tidyPath = (d: string): string => d.replace(NUMBER, (n) => String(round1(Number(n))));
 
 /**
- * A mirrored copy of a drawing (spec "이웃 요소 변형"). The element itself is never flipped,
+ * A mirrored copy of a drawing (spec "Neighbour variants"). The element itself is never flipped,
  * since that would flip its text too; the SVG content is, with the same path data.
  */
 export type Flip = 'none' | 'x' | 'y' | 'xy';

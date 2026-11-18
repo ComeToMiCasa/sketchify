@@ -1,4 +1,4 @@
-// Neighbour variants (spec "이웃 요소 변형"). Writes the drawing variables on `:root` and the
+// Neighbour variants (spec "Neighbour variants"). Writes the drawing variables on `:root` and the
 // rules that pick, for every element, which of its rule's variants to use. The only other
 // place (with emit.ts) that changes the PostCSS tree.
 //

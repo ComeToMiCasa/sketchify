@@ -1,6 +1,6 @@
 /*
  * M4 test CSS: a small design system whose borders are spread over several rules.
- * Each rule's "기대" comment is the result M4 must give (spec "여러 규칙에 걸친 테두리": draw what
+ * Each rule's "expected" comment is the result M4 must give (spec "Borders across rules": draw what
  * the original CSS shows, with combination rules where needed). Error inputs are in
  * test/fixtures/cascade/.
  *
@@ -25,7 +25,7 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
 
 /* ---------------------------------------------------------------- Button */
 
-/* 기대: 그대로 그림 (한 규칙에서 완성). 2px, 모서리 6, --ink. */
+/* Expected: drawn as is (complete in one rule). 2px, radius 6, --ink. */
 .btn {
   font: inherit;
   padding: 8px 16px;
@@ -35,61 +35,61 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
   border-radius: 6px;
 }
 
-/* 크기 묶음: 두께와 모서리를 바꾼다.
-   기대: 셀렉터에 부모 .btn이 들어 있으므로 .btn에서 스타일·색을 받아 그림. */
+/* Size group: changes width and radius.
+   Expected: the selector contains the parent .btn, so style and colour come from .btn. */
 .btn.btn--sm { padding: 4px 10px; font-size: 13px; border-width: 1px; border-radius: 4px; }
 .btn.btn--lg { padding: 12px 22px; font-size: 17px; border-width: 3px; border-radius: 10px; }
 
-/* 색 묶음: 색만 바꾼다.
-   기대: .btn에서 두께·스타일·모서리를 받아 그림. */
+/* Colour group: changes the colour only.
+   Expected: width, style and radius come from .btn. */
 .btn.btn--primary { border-color: var(--primary); }
 .btn.btn--danger { border-color: var(--danger); }
 
-/* 기대: 크기 묶음 × 색 묶음의 조합 규칙과 그림을 자동 생성
+/* Expected: combination rules and drawings generated for size group × colour group
    (.btn.btn--sm.btn--primary, .btn.btn--sm.btn--danger, .btn.btn--lg.btn--primary, .btn.btn--lg.btn--danger).
-   예: .btn.btn--lg.btn--danger는 3px, 모서리 10, --danger. */
+   e.g. .btn.btn--lg.btn--danger is 3px, radius 10, --danger. */
 
-/* 상태: 같은 셀렉터(.btn)에 가상 클래스. 색만 바꾼다.
-   기대: .btn에서 나머지를 받아 그림. 모양(칸)은 그대로, 색만 바뀜.
-   크기 수정자와는 바꾸는 속성이 달라 조합을 만든다: .btn.btn--sm:hover, .btn.btn--lg:hover,
-   .btn.btn--sm:focus-visible, .btn.btn--lg:focus-visible (예: 크게·hover는 3px, 모서리 10, --hover).
-   색 수정자와는 같은 속성(색)이라 조합하지 않는다: 원래 CSS처럼 나중 규칙(hover)이 이김. */
+/* States: pseudo-classes on the same selector (.btn). Change the colour only.
+   Expected: the rest comes from .btn. The shape (slot) stays; only the colour changes.
+   Size modifiers change other properties, so they combine: .btn.btn--sm:hover, .btn.btn--lg:hover,
+   .btn.btn--sm:focus-visible, .btn.btn--lg:focus-visible (e.g. large + hover is 3px, radius 10, --hover).
+   Colour modifiers change the same property (colour), so no combination: the later rule (hover) wins as in the original CSS. */
 .btn:hover { border-color: var(--hover); }
 .btn:focus-visible { border-color: var(--focus); }
 
-/* 수정자의 상태. 기대: .btn.btn--primary(→ .btn)에서 받아 그림.
-   크기와의 조합 .btn.btn--sm.btn--primary:hover, .btn.btn--lg.btn--primary:hover도 생성. */
+/* A modifier's state. Expected: taken from .btn.btn--primary (→ .btn).
+   Combinations with sizes, .btn.btn--sm.btn--primary:hover and .btn.btn--lg.btn--primary:hover, are generated too. */
 .btn.btn--primary:hover { border-color: var(--ink); }
 
-/* 반응형: 같은 셀렉터가 @media 안에서 모서리만 바꾼다.
-   기대: .btn에서 받아 넓은 화면에서는 모서리 8로 그림.
-   색 수정자·상태와는 같은 @media 안에 조합을 만든다(.btn.btn--primary, .btn.btn--danger, .btn:hover,
-   .btn:focus-visible, .btn.btn--primary:hover → 모서리 8). 크기 수정자는 자기 모서리(4, 10)가
-   원래 CSS에서도 이기므로 조합하지 않는다. */
+/* Responsive: the same selector changes only the radius inside @media.
+   Expected: taken from .btn and drawn with radius 8 on wide screens.
+   With colour modifiers and states, combinations go inside the same @media (.btn.btn--primary, .btn.btn--danger, .btn:hover,
+   .btn:focus-visible, .btn.btn--primary:hover → radius 8). Size modifiers' own radius (4, 10)
+   wins in the original CSS too, so they are not combined. */
 @media (min-width: 900px) {
   .btn { border-radius: 8px; }
 }
 
 /* ---------------------------------------------------------------- Card */
 
-/* 기대: 그대로 그림. 1px, 모서리 12, --line. */
+/* Expected: drawn as is. 1px, radius 12, --line. */
 .card { padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
 
-/* 모서리 묶음. 기대: .card에서 받아 각진 모서리로 그림. */
+/* Radius group. Expected: taken from .card and drawn with square corners. */
 .card.card--flat { border-radius: 0; }
 
-/* 선택 상태(클래스): 두께와 색을 바꾼다. 원래 CSS에서도 두께가 바뀌므로 레이아웃은 원본과 같다.
-   기대: .card에서 받아 2px, --primary로 그림. 모서리 묶음과의 조합 .card.card--flat.is-selected도 생성. */
+/* Selected state (a class): changes width and colour. The width changes in the original CSS too, so the layout matches the original.
+   Expected: taken from .card, drawn 2px in --primary. The combination with the radius group, .card.card--flat.is-selected, is generated too. */
 .card.is-selected { border-width: 2px; border-color: var(--primary); }
 
 /* ---------------------------------------------------------------- Field */
 
-/* 기대: 그대로 그림. 1px, 모서리 6, --line. */
+/* Expected: drawn as is. 1px, radius 6, --line. */
 .field { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: #ffffff; }
 
-/* 기대: .field에서 받아 그림. */
+/* Expected: taken from .field. */
 .field:focus { border-color: var(--focus); outline: none; }
 .field.is-invalid { border-color: var(--danger); }
 
-/* 같은 속성(색)을 바꾸는 수정자·상태끼리는 조합하지 않는다.
-   기대: .field.is-invalid:focus 같은 조합 규칙은 생성하지 않음. 원래 CSS처럼 나중 규칙(또는 우선순위)이 이김. */
+/* Modifiers and states changing the same property (colour) are not combined.
+   Expected: no combination rule like .field.is-invalid:focus. As in the original CSS, the later rule (or specificity) wins. */

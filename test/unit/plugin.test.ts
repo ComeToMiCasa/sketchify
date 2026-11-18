@@ -173,7 +173,7 @@ describe('colour errors', () => {
     const message = await errorOf('.a {\n  border: 1px solid;\n}\n');
     expect(message).toContain('theme.css:2:3:');
     expect(message).toContain('currentColor');
-    expect(message).toContain('색을 생략해도 currentColor');
+    expect(message).toContain('Leaving the colour out');
     expect(message).toContain('border: 1px solid #1d2433');
     expect(message).toContain('--sketch: off');
     expect(await errorOf('.a { border: 1px solid currentColor; }')).toContain('currentColor');
@@ -186,13 +186,13 @@ describe('colour errors', () => {
     expect(message).toContain(':root');
     expect(message).toContain('postcss-import');
     expect(message).toContain('--sketch: off');
-    expect(await errorOf(':root { --a: var(--b); --b: var(--a); }\n.a { border: 1px solid var(--a); }')).toContain('순환');
+    expect(await errorOf(':root { --a: var(--b); --b: var(--a); }\n.a { border: 1px solid var(--a); }')).toContain('a cycle');
   });
 
   it('a class theme or another rule changing the variable is an error, even through another variable', async () => {
     const message = await errorOf(':root { --base: red; --ink: var(--base); }\nhtml.dark { --base: blue; }\n.a { border: 1px solid var(--ink); }\n');
     expect(message).toContain('`--base`');
-    expect(message).toContain('`html.dark`(2:13)');
+    expect(message).toContain("`html.dark` (2:13)");
     expect(message).toContain('@media (prefers-color-scheme: dark)');
     // A modifier with its parent in the selector may change the variable (M4, README 7).
     expect(await errorOf('.a { --c: red; border: 1px solid var(--c); }\n.a.big { --c: blue; }\n')).toBe('no error');
@@ -206,7 +206,7 @@ describe('colour errors', () => {
 
   it('reports every error at once, each with its line', async () => {
     const message = await errorOf('.a { border: 1px solid; }\n.b { border: 1px solid var(--x); }\n');
-    expect(message).toContain('오류 2개');
+    expect(message).toContain('2 errors');
     expect(message).toContain('\n1:6 ');
     expect(message).toContain('\n2:6 ');
   });
@@ -221,7 +221,7 @@ describe('--sketch control', () => {
   });
 
   it('any other value is an error', async () => {
-    expect(await errorOf('.a { border: 1px solid red; --sketch: on; }')).toContain('`--sketch`에는 `off`만');
+    expect(await errorOf('.a { border: 1px solid red; --sketch: on; }')).toContain('`--sketch` only accepts `off`');
   });
 });
 
@@ -309,7 +309,7 @@ describe('cascade errors', () => {
   ])('%s without a parent in its selector', async (_name, css, selector) => {
     const message = await errorOf(css);
     expect(message).toContain(selector);
-    expect(message).toContain('셀렉터로 알 수 없습니다');
+    expect(message).toContain('no rule in its selector gives the rest');
     expect(message).toContain('`.btn.btn--lg`');
     expect(message).toContain('border: 2px solid #1d2433');
     expect(message).toContain('--sketch: off');
@@ -323,7 +323,7 @@ describe('cascade errors', () => {
 
   it('too many rules on one parent', async () => {
     const modifiers = Array.from({ length: 17 }, (_, i) => `.btn.m${i} { border-width: ${i + 1}px; }`).join('\n');
-    expect(await errorOf(`.btn { border: 1px solid red; }\n${modifiers}\n`)).toContain('17개로 16개를 넘습니다');
+    expect(await errorOf(`.btn { border: 1px solid red; }\n${modifiers}\n`)).toContain('17 rules (modifiers, states and conditions) change this rule\'s border, more than 16');
   });
 
   it('a class theme without the parent in its selector is still an error', async () => {
@@ -408,7 +408,7 @@ describe('fills', () => {
 
   it.each([
     ['an unknown value', '.a { --sketch-fill: wavy; }', '`wavy`'],
-    ['currentColor', '.a { background: currentColor; --sketch-fill: rough; }', '채움 색을 빌드 때 알 수 없습니다'],
+    ['currentColor', '.a { background: currentColor; --sketch-fill: rough; }', 'The fill colour is not known at build time'],
   ])('%s is an error', async (_name, css, text) => {
     expect(await errorOf(css)).toContain(text);
   });
@@ -455,7 +455,7 @@ describe('hatch fill', () => {
   });
 
   it('currentColor is an error, an image background is left alone', async () => {
-    expect(await errorOf('.a { background: currentColor; --sketch-fill: hatch; }')).toContain('채움 색을 빌드 때 알 수 없습니다');
+    expect(await errorOf('.a { background: currentColor; --sketch-fill: hatch; }')).toContain('The fill colour is not known at build time');
     expect(await transform('.a { background: url(a.png) #eee; --sketch-fill: hatch; }\n')).toBe('.a { background: url(a.png) #eee; }\n');
   });
 });
@@ -497,7 +497,7 @@ describe('exact hatch (M6c)', () => {
 
   it('an invalid --sketch-size is an error', async () => {
     for (const value of ['1x', '0 10', '10 20 30', '10% 20px', 'auto']) {
-      expect(await errorOf(`.a { --sketch-size: ${value}; ${CARD} }`), value).toContain('`--sketch-size`에는');
+      expect(await errorOf(`.a { --sketch-size: ${value}; ${CARD} }`), value).toContain('`--sketch-size` takes');
     }
   });
 
@@ -667,8 +667,8 @@ describe('@sketchify base (M7a)', () => {
   });
 
   it('two base lines or an unknown @sketchify are errors', async () => {
-    expect(await errorOf(`${BASE}${BASE}`)).toContain('한 번만');
-    expect(await errorOf('@sketchify everything;')).toContain('알 수 없는 `@sketchify everything`');
+    expect(await errorOf(`${BASE}${BASE}`)).toContain('only once');
+    expect(await errorOf('@sketchify everything;')).toContain('Unknown `@sketchify everything`');
   });
 });
 
@@ -746,7 +746,7 @@ describe('warnings (M8)', () => {
 
   it('leaves kinds out with quiet, and checks the option', async () => {
     expect(await kinds('.a { border: 2px dashed #000; }', { quiet: ['style'] })).toEqual([]);
-    expect(await errorOf('.a { border: 1px solid #000; }', { quiet: ['loud'] })).toContain('quiet는 경고 이름의 배열');
+    expect(await errorOf('.a { border: 1px solid #000; }', { quiet: ['loud'] })).toContain('quiet must be an array of warning names');
   });
 
   it('always leaves a size report, and warns over the budget only', async () => {
@@ -762,8 +762,8 @@ describe('warnings (M8)', () => {
     expect(report.top[0]?.selector).toBe('.a');
     expect(result.warnings()).toEqual([]);
     const tight = (await run('.a { border: 1px solid #000; }\n', { budget: { gzip: 0.1 } })).warnings().map((w) => w.text);
-    expect(tight[0]).toMatch(/^\[sketchify:budget\] 손그림으로 CSS가 gzip [\d.]+KB 늘었습니다\(예산 0\.1KB\)\. .*많이 늘린 규칙\(원본 기준\): \.a \(1:1\)/);
+    expect(tight[0]).toMatch(/^\[sketchify:budget\] The sketches added [\d.]+KB gzip to the CSS \(budget 0\.1KB\)\. .*Rules that added the most \(in the source\): \.a \(1:1\)/);
     expect((await run('.a { border: 1px solid #000; }\n', { budget: false })).warnings()).toEqual([]);
-    expect(await errorOf('.a { border: 1px solid #000; }', { budget: { gzip: -1 } })).toContain('budget은');
+    expect(await errorOf('.a { border: 1px solid #000; }', { budget: { gzip: -1 } })).toContain('budget must be');
   });
 });

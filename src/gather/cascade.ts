@@ -1,4 +1,4 @@
-// The cascade across rules (spec "여러 규칙에 걸친 테두리"). Pure.
+// The cascade across rules (spec "Borders across rules"). Pure.
 //
 // The principle: draw what the original CSS would show. An "element" is a combination of
 // selectors that can match one element together (a parent rule, its modifiers, states and

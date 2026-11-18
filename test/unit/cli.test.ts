@@ -31,7 +31,7 @@ describe('sketchify command', () => {
     expect(readFileSync(join(dir, 'out/a.css'), 'utf8')).toContain('border-image: var(--sk)');
     expect(t.out()).toBe('');
     expect(t.err()).toMatch(/^a\.css:2:6 \[sketchify:style\] /m);
-    expect(t.err()).toMatch(/^a\.css → out\/a\.css {2}gzip \+[\d.]+KB, 그림 12장\(조합 0\), 경고 1$/m);
+    expect(t.err()).toMatch(/^a\.css → out\/a\.css {2}gzip \+[\d.]+KB, 12 drawings \(0 combos\), 1 warning$/m);
   });
 
   it('converts several files into a folder, keeping their names', async () => {
@@ -49,7 +49,7 @@ describe('sketchify command', () => {
     const u = fake(dir, CARD);
     expect(await run(['-o', 'piped.css'], u.io)).toBe(0);
     expect(readFileSync(join(dir, 'piped.css'), 'utf8')).toContain('border-image');
-    expect(u.err()).toMatch(/^<표준 입력> → piped\.css /m);
+    expect(u.err()).toMatch(/^<stdin> → piped\.css /m);
   });
 
   it('--no-report leaves the size line out but keeps the warnings', async () => {
@@ -61,13 +61,13 @@ describe('sketchify command', () => {
   });
 
   it.each([
-    [['a.css', 'b.css'], '-d <폴더>`가 필요'],
-    [['a.css', '-o', 'x.css', '-d', 'x'], '함께 쓸 수 없습니다'],
-    [['a.css', '-o', 'a.css'], '입력 파일과 같습니다'],
-    [['--watch'], '입력 파일이 필요'],
-    [['a.css', '--watch'], '출력(`-o` 또는 `-d`)이 필요'],
+    [['a.css', 'b.css'], '`-d <dir>`'],
+    [['a.css', '-o', 'x.css', '-d', 'x'], 'cannot be used together'],
+    [['a.css', '-o', 'a.css'], 'The output is the input file'],
+    [['--watch'], 'needs input files'],
+    [['a.css', '--watch'], 'needs an output (`-o` or `-d`)'],
     [['--loud'], "Unknown option '--loud'"],
-    [['a.css', '-o', 'o.css', '--config', 'nope.js'], '설정 파일을 찾을 수 없습니다'],
+    [['a.css', '-o', 'o.css', '--config', 'nope.js'], 'Config file not found'],
   ])('refuses %j with exit code 2', async (argv, message) => {
     const t = fake(folder({ 'a.css': CARD, 'b.css': CARD }));
     expect(await run(argv, t.io)).toBe(2);
@@ -95,13 +95,13 @@ describe('sketchify command', () => {
     const dir = folder({ 'a.css': CARD, 'sketchify.config.mjs': "export default { roughness: 'wild' };\n" });
     const t = fake(dir);
     expect(await run(['a.css', '-o', 'o.css'], t.io)).toBe(1);
-    expect(t.err()).toContain('roughness는');
+    expect(t.err()).toContain('roughness must be');
   });
 
   it('prints help and the version', async () => {
     const t = fake(folder());
     expect(await run(['--help'], t.io)).toBe(0);
-    expect(t.out()).toContain('사용법: sketchify');
+    expect(t.out()).toContain('Usage: sketchify');
     const u = fake(folder());
     expect(await run(['--version'], u.io)).toBe(0);
     expect(u.out()).toMatch(/^\d+\.\d+\.\d+\n$/);
@@ -115,7 +115,7 @@ describe('sketchify command', () => {
     const until = async (ok: () => boolean): Promise<void> => {
       for (let i = 0; i < 100 && !ok(); i += 1) await new Promise((r) => setTimeout(r, 50));
     };
-    await until(() => t.err().includes('감시합니다'));
+    await until(() => t.err().includes('Watching for changes'));
     writeFileSync(join(dir, 'a.css'), '.changed { border: 3px solid #b91c1c; }\n');
     await until(() => readFileSync(join(dir, 'o.css'), 'utf8').includes('.changed'));
     expect(readFileSync(join(dir, 'o.css'), 'utf8')).toContain('.changed');
@@ -137,6 +137,6 @@ describe('command output', () => {
     expect(warningLine('a.css', { line: 3, column: 2, text: '[sketchify:style] …' })).toBe('a.css:3:2 [sketchify:style] …');
     expect(warningLine('a.css', { text: '[sketchify:budget] …' })).toBe('a.css [sketchify:budget] …');
     const report = { before: { raw: 0, gzip: 1024 }, after: { raw: 0, gzip: 3584 }, drawings: 24, comboRules: 2, comboDrawings: 0, top: [] };
-    expect(reportLine('a.css', 'o.css', report, 0)).toBe('a.css → o.css  gzip +2.5KB, 그림 24장(조합 2), 경고 0');
+    expect(reportLine('a.css', 'o.css', report, 0)).toBe('a.css → o.css  gzip +2.5KB, 24 drawings (2 combos), 0 warnings');
   });
 });

@@ -1,4 +1,4 @@
-// Selector analysis for the cascade (spec "여러 규칙에 걸친 테두리"). Pure: selector text in,
+// Selector analysis for the cascade (spec "Borders across rules"). Pure: selector text in,
 // plain data out. postcss-selector-parser only ever gets text here (see eslint.config.js).
 import parser from 'postcss-selector-parser';
 
@@ -99,7 +99,7 @@ export const contains = (outer: SelectorEntry, inner: SelectorEntry): boolean =>
 
 const typeOf = (entry: SelectorEntry): string | undefined => entry.compound.find((simple) => /^[a-z]/i.test(simple));
 
-/** Elements that are inline by default (spec "밑줄", M6d): an underline drawn as a background follows their lines. */
+/** Elements that are inline by default (spec "Underlines", M6d): an underline drawn as a background follows their lines. */
 const INLINE_ELEMENTS: ReadonlySet<string> = new Set([
   'a', 'abbr', 'b', 'cite', 'code', 'dfn', 'em', 'i', 'ins', 'kbd', 'label', 'mark', 'q', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var',
 ]);

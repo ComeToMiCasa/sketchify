@@ -98,7 +98,7 @@ export type Look =
   | { readonly kind: 'paint'; readonly background?: string; readonly hatch?: HatchLook; readonly underline?: UnderlineLook };
 
 /**
- * The hatch as a background (spec "채움": unknown size). Only paint properties: the layout stays.
+ * The hatch as a background (spec "Fills": unknown size). Only paint properties: the layout stays.
  * The tile shows inside the padding box, starting where the neighbour rules shift it.
  */
 const hatchDecls = (hatch: HatchLook | undefined, important: boolean, full: boolean): ReadonlyArray<postcss.Declaration> => {
@@ -156,7 +156,7 @@ const lookDecls = (look: Look, important: boolean, hideColor: boolean): Readonly
 
 /**
  * In the rule itself, right after `anchor` (its last border declaration), so a `border`
- * shorthand (which resets `border-image`) never comes after the drawing (spec "구현 주의점").
+ * shorthand (which resets `border-image`) never comes after the drawing (spec "Implementation pitfalls").
  */
 export const emitInline = (anchor: postcss.Declaration, look: Look, important: boolean): void => {
   anchor.after([...lookDecls(look, important, true)]);

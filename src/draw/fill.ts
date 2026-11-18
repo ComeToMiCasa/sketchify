@@ -1,4 +1,4 @@
-// Fills drawn into the same 9-slice SVG as the border (spec "채움", M6a). Pure.
+// Fills drawn into the same 9-slice SVG as the border (spec "Fills", M6a). Pure.
 // Ported from prototypes/fills.mjs: blob() (rough solid) and marker() (highlighter).
 import rough from 'roughjs';
 import type { HatchOptions, Rough } from '../options';
@@ -12,7 +12,7 @@ export type FillInput =
     }
   /**
    * An exact hatch (M6c): the element's border-box size is known, so the drawing is made at that
-   * size and each stroke ends at the outline (spec "채움", "크기 처리").
+   * size and each stroke ends at the outline (spec "Fills", "Element sizes").
    */
   | {
       readonly kind: 'hatch';

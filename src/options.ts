@@ -4,21 +4,21 @@ import type { Result } from './report/diagnostics';
 
 export type RoughnessPreset = 'subtle' | 'normal' | 'messy';
 
-/** Options accepted by the plugin. Global only; per-rule overrides are out of scope (spec "옵션"). */
+/** Options accepted by the plugin. Global only; per-rule overrides are out of scope (spec "Options"). */
 export type SketchifyOptions = {
   /** A preset name or a Rough.js roughness number (0 or more). Default `normal`. */
   readonly roughness?: RoughnessPreset | number;
   /**
-   * Hatch fill (`--sketch-fill: hatch`, spec "옵션"): a preset name, or numbers (px without a
+   * Hatch fill (`--sketch-fill: hatch`, spec "Options"): a preset name, or numbers (px without a
    * unit) on top of a preset (`{ preset: 'bold', gap: 10 }`; `normal` when no preset is named).
    */
   readonly hatch?: HatchPreset | (Partial<HatchOptions> & { readonly preset?: HatchPreset });
   /**
-   * Colours of `@sketchify base` (spec "폼 요소와 @sketchify base"): outlines in `ink`, ticks, dots
+   * Colours of `@sketchify base` (spec "Form controls and @sketchify base"): outlines in `ink`, ticks, dots
    * and focus in `accent`; `dark` replaces them under `prefers-color-scheme: dark`. Literal colours.
    */
   readonly base?: Partial<BaseColors> & { readonly dark?: Partial<BaseColors> };
-  /** Warning kinds to leave out (spec "제약과 오류 처리", M8), such as `['style', 'clip']`. */
+  /** Warning kinds to leave out (spec "Limits and errors", M8), such as `['style', 'clip']`. */
   readonly quiet?: ReadonlyArray<WarningKind>;
   /** The CSS size budget (M8): a warning when the added size (gzip, KB) is over it. `false` turns it off. */
   readonly budget?: { readonly gzip: number } | false;
@@ -33,7 +33,7 @@ export const BASE_DEFAULTS: BaseColors = { ink: '#1d2433', accent: '#2563eb' };
 
 export type HatchPreset = 'fine' | 'normal' | 'bold';
 
-/** Hatch options (spec "옵션" table). */
+/** Hatch options (spec "Options" table). */
 export type HatchOptions = {
   /** Distance between strokes along the horizontal (px). */
   readonly gap: number;
@@ -82,7 +82,7 @@ const HATCH_PRESET_NAMES: ReadonlyArray<HatchPreset> = ['fine', 'normal', 'bold'
 const isHatchPreset = (value: unknown): value is HatchPreset =>
   typeof value === 'string' && (HATCH_PRESET_NAMES as ReadonlyArray<string>).includes(value);
 
-/** Rough.js parameters for one roughness level. `maxRandomnessOffset` is "삐침" in the spec. */
+/** Rough.js parameters for one roughness level. `maxRandomnessOffset` is the "overshoot" in the spec. */
 export type Rough = {
   readonly roughness: number;
   readonly bowing: number;
@@ -101,7 +101,7 @@ export type ResolvedOptions = {
   readonly budget?: number | false;
 };
 
-/** The default budget: added gzip KB per file (spec "용량 예산"). Calibrated in M8: pages add 2–11KB, Water.css 6.8KB, the many-combination design-system page 22.9KB. */
+/** The default budget: added gzip KB per file (spec "Size budget"). Calibrated in M8: pages add 2–11KB, Water.css 6.8KB, the many-combination design-system page 22.9KB. */
 export const BUDGET_GZIP_KB = 30;
 
 export const budgetOf = (options: ResolvedOptions): number | false => (options.budget === undefined ? BUDGET_GZIP_KB : options.budget);
@@ -149,20 +149,20 @@ const resolveRoughness = (roughness: unknown): Result<Rough> => {
   if (typeof roughness === 'number' && Number.isFinite(roughness) && roughness >= 0) return { value: roughFromNumber(roughness), diagnostics: [] };
   return {
     value: PRESETS.normal,
-    diagnostics: optionError(`roughness는 'subtle', 'normal', 'messy' 중 하나이거나 0 이상의 숫자여야 합니다. 받은 값: ${JSON.stringify(roughness)}`),
+    diagnostics: optionError(`roughness must be 'subtle', 'normal', 'messy' or a number from 0. Got: ${JSON.stringify(roughness)}`),
   };
 };
 
 type NumberRule = { readonly name: Exclude<keyof HatchOptions, 'ends'>; readonly ok: (n: number, all: HatchOptions) => boolean; readonly range: string };
 
 const HATCH_NUMBERS: ReadonlyArray<NumberRule> = [
-  { name: 'gap', ok: (n) => n >= 2, range: '2 이상' },
-  { name: 'weight', ok: (n) => n > 0, range: '0보다 큰 수' },
-  { name: 'weightJitter', ok: (n) => n >= 0, range: '0 이상' },
-  { name: 'pressure', ok: (n) => n >= 0 && n <= 0.9, range: '0~0.9 (비율, 0.16 = ±16%)' },
-  { name: 'pressureLength', ok: (n, all) => n > all.gap, range: 'gap보다 큰 수' },
-  { name: 'bow', ok: (n) => n >= 0, range: '0 이상' },
-  { name: 'over', ok: (n) => n >= 0, range: '0 이상' },
+  { name: 'gap', ok: (n) => n >= 2, range: 'at least 2' },
+  { name: 'weight', ok: (n) => n > 0, range: 'greater than 0' },
+  { name: 'weightJitter', ok: (n) => n >= 0, range: 'at least 0' },
+  { name: 'pressure', ok: (n) => n >= 0 && n <= 0.9, range: 'from 0 to 0.9 (a ratio: 0.16 = ±16%)' },
+  { name: 'pressureLength', ok: (n, all) => n > all.gap, range: 'greater than gap' },
+  { name: 'bow', ok: (n) => n >= 0, range: 'at least 0' },
+  { name: 'over', ok: (n) => n >= 0, range: 'at least 0' },
 ];
 
 const PRESET_LIST = HATCH_PRESET_NAMES.map((name) => `'${name}'`).join(', ');
@@ -171,11 +171,11 @@ const resolveHatch = (hatch: unknown): Result<HatchOptions | undefined> => {
   if (hatch === undefined) return { value: undefined, diagnostics: [] };
   if (isHatchPreset(hatch)) return { value: HATCH_PRESETS[hatch], diagnostics: [] };
   if (typeof hatch !== 'object' || hatch === null) {
-    return { value: undefined, diagnostics: optionError(`hatch 옵션은 프리셋 이름(${PRESET_LIST})이나 객체여야 합니다. 받은 값: ${JSON.stringify(hatch)}`) };
+    return { value: undefined, diagnostics: optionError(`hatch must be a preset name (${PRESET_LIST}) or an object. Got: ${JSON.stringify(hatch)}`) };
   }
   const { preset, ...given } = hatch as Readonly<Record<string, unknown>>;
   if (preset !== undefined && !isHatchPreset(preset)) {
-    return { value: undefined, diagnostics: optionError(`hatch.preset은 ${PRESET_LIST} 중 하나여야 합니다. 받은 값: ${JSON.stringify(preset)}`) };
+    return { value: undefined, diagnostics: optionError(`hatch.preset must be one of ${PRESET_LIST}. Got: ${JSON.stringify(preset)}`) };
   }
   const unknownKeys = Object.keys(given).filter((key) => !(key in HATCH_DEFAULTS));
   const merged = { ...(preset === undefined ? HATCH_DEFAULTS : HATCH_PRESETS[preset]), ...given } as HatchOptions;
@@ -183,10 +183,10 @@ const resolveHatch = (hatch: unknown): Result<HatchOptions | undefined> => {
     const value: unknown = merged[name];
     return typeof value === 'number' && Number.isFinite(value) && ok(value, merged)
       ? []
-      : optionError(`hatch.${name}는 ${range}인 숫자(px, 단위 없이)여야 합니다. 받은 값: ${JSON.stringify(value)}`);
+      : optionError(`hatch.${name} must be a number ${range} (px, without a unit). Got: ${JSON.stringify(value)}`);
   });
-  const endsErrors = merged.ends === 'taper' || merged.ends === 'square' ? [] : optionError(`hatch.ends는 'taper' 또는 'square'여야 합니다. 받은 값: ${JSON.stringify(merged.ends)}`);
-  const keyErrors = unknownKeys.flatMap((key) => optionError(`알 수 없는 hatch 옵션: ${key}. 쓸 수 있는 옵션: preset, ${Object.keys(HATCH_DEFAULTS).join(', ')}`));
+  const endsErrors = merged.ends === 'taper' || merged.ends === 'square' ? [] : optionError(`hatch.ends must be 'taper' or 'square'. Got: ${JSON.stringify(merged.ends)}`);
+  const keyErrors = unknownKeys.flatMap((key) => optionError(`Unknown hatch option: ${key}. Known options: preset, ${Object.keys(HATCH_DEFAULTS).join(', ')}`));
   const diagnostics = [...keyErrors, ...numberErrors, ...endsErrors];
   return { value: diagnostics.length > 0 ? undefined : merged, diagnostics };
 };
@@ -196,18 +196,18 @@ const COLOR_KEYS: ReadonlyArray<keyof BaseColors> = ['ink', 'accent'];
 /** One set of base colours: known keys, literal colours (they are baked into the drawings). */
 const resolveColors = (given: unknown, path: string, fallback: BaseColors): Result<BaseColors> => {
   if (typeof given !== 'object' || given === null) {
-    return { value: fallback, diagnostics: optionError(`${path} 옵션은 객체여야 합니다. 받은 값: ${JSON.stringify(given)}`) };
+    return { value: fallback, diagnostics: optionError(`${path} must be an object. Got: ${JSON.stringify(given)}`) };
   }
   const entries = given as Readonly<Record<string, unknown>>;
   const keyErrors = Object.keys(entries)
     .filter((key) => !(COLOR_KEYS as ReadonlyArray<string>).includes(key) && !(path === 'base' && key === 'dark'))
-    .flatMap((key) => optionError(`알 수 없는 ${path} 옵션: ${key}. 쓸 수 있는 옵션: ink, accent${path === 'base' ? ', dark' : ''}`));
+    .flatMap((key) => optionError(`Unknown ${path} option: ${key}. Known options: ink, accent${path === 'base' ? ', dark' : ''}`));
   const colors = COLOR_KEYS.map((key) => {
     const value = entries[key] ?? fallback[key];
     const parsed = typeof value === 'string' ? parseColor(value) : undefined;
     return parsed?.kind === 'literal'
       ? { key, css: parsed.css, diagnostics: [] }
-      : { key, css: fallback[key], diagnostics: optionError(`${path}.${key}는 빌드 때 알 수 있는 색(#hex, rgb() 등, var()·currentColor 제외)이어야 합니다. 받은 값: ${JSON.stringify(value)}`) };
+      : { key, css: fallback[key], diagnostics: optionError(`${path}.${key} must be a colour known at build time (#hex, rgb() and so on; not var() or currentColor). Got: ${JSON.stringify(value)}`) };
   });
   const value = Object.fromEntries(colors.map((c) => [c.key, c.css])) as BaseColors;
   return { value, diagnostics: [...keyErrors, ...colors.flatMap((c) => c.diagnostics)] };
@@ -227,7 +227,7 @@ const resolveQuiet = (quiet: unknown): Result<ReadonlyArray<WarningKind> | undef
   const list = Array.isArray(quiet) ? (quiet as ReadonlyArray<unknown>) : undefined;
   const wrong = list ? list.filter((kind) => !isWarningKind(kind)) : [quiet];
   if (!list || wrong.length > 0) {
-    return { value: undefined, diagnostics: optionError(`quiet는 경고 이름의 배열이어야 합니다(${WARNING_KINDS.join(', ')}). 받은 값: ${JSON.stringify(list ? wrong : quiet)}`) };
+    return { value: undefined, diagnostics: optionError(`quiet must be an array of warning names (${WARNING_KINDS.join(', ')}). Got: ${JSON.stringify(list ? wrong : quiet)}`) };
   }
   return { value: list.filter(isWarningKind), diagnostics: [] };
 };
@@ -236,7 +236,7 @@ const resolveBudget = (budget: unknown): Result<number | false | undefined> => {
   if (budget === undefined || budget === false) return { value: budget, diagnostics: [] };
   const gzip = typeof budget === 'object' && budget !== null ? (budget as Readonly<Record<string, unknown>>)['gzip'] : undefined;
   if (typeof gzip === 'number' && Number.isFinite(gzip) && gzip > 0 && Object.keys(budget as object).length === 1) return { value: gzip, diagnostics: [] };
-  return { value: undefined, diagnostics: optionError(`budget은 { gzip: 0보다 큰 KB 숫자 }이거나 false여야 합니다. 받은 값: ${JSON.stringify(budget)}`) };
+  return { value: undefined, diagnostics: optionError(`budget must be { gzip: KB greater than 0 } or false. Got: ${JSON.stringify(budget)}`) };
 };
 
 /** Validates user options (they may come from plain JS) and fills in defaults. */
@@ -244,7 +244,7 @@ export const resolveOptions = (options: unknown): Result<ResolvedOptions> => {
   const fallback: ResolvedOptions = { rough: PRESETS.normal };
   if (options === undefined || options === null) return { value: fallback, diagnostics: [] };
   if (typeof options !== 'object') {
-    return { value: fallback, diagnostics: [{ severity: 'error', message: `옵션은 객체여야 합니다. 받은 값: ${String(options)}` }] };
+    return { value: fallback, diagnostics: [{ severity: 'error', message: `Options must be an object. Got: ${String(options)}` }] };
   }
   const given = options as Readonly<Record<string, unknown>>;
   const rough = resolveRoughness(given['roughness']);

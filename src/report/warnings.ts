@@ -1,4 +1,4 @@
-// Warnings (spec "제약과 오류 처리", M8): why something is not drawn, or may not look right. Pure.
+// Warnings (spec "Limits and errors", M8): why something is not drawn, or may not look right. Pure.
 // Each has a name the `quiet` option can turn off; `--sketch: off` on a rule leaves it out too.
 import type { Node } from 'postcss';
 import { BASE_LAYER } from '../emit/layer';
@@ -28,25 +28,25 @@ export type WarningKind = (typeof WARNING_KINDS)[number];
 export const isWarningKind = (value: unknown): value is WarningKind => typeof value === 'string' && (WARNING_KINDS as ReadonlyArray<string>).includes(value);
 
 const WHAT: Readonly<Record<WarningKind, string>> = {
-  style: '실선(solid)이 아닌 테두리(dashed, dotted 등)는 손그림으로 그리지 않고 원래 CSS대로 둡니다.',
-  mixed: '변마다 색이나 두께가 다른 테두리는 손그림으로 그리지 않고 원래 CSS대로 둡니다.',
-  sides: '두세 변에만 있는 테두리는 손그림으로 그리지 않고 원래 CSS대로 둡니다(네 변 모두나 한 변만 그림).',
-  radius: '이 모서리(32px보다 큰 radius, %, 모서리마다 다르거나 타원)는 손그림으로 그리지 않고 원래 CSS대로 둡니다.',
-  unit: 'px가 아닌 테두리 두께(em 등)는 빌드 때 알 수 없어 원래 CSS대로 둡니다.',
-  combo: '이 규칙이 다른 규칙과 함께 걸리는 요소에서는 결과 테두리를 그릴 수 없어 원래 CSS대로 보여줍니다.',
-  collapse: '`border-collapse: collapse` 표의 칸 테두리는 이웃 칸과 합쳐지지만, 손그림은 칸마다 따로 그려져 겹쳐 보일 수 있습니다.',
-  transition: '테두리 색 전환(`transition`)은 손그림에서는 부드럽게 바뀌지 않고 한 번에 바뀝니다.',
-  clip: '이 요소를 감싸는 규칙에 `overflow: hidden`(또는 auto, scroll)이 있어, 테두리 밖으로 나가는 손그림 선이 잘릴 수 있습니다. 부모에 padding을 주거나 `overflow: clip`과 `overflow-clip-margin`을 쓰면 안 잘립니다.',
-  'underline-color': '밑줄 색(`text-decoration-color` 또는 `color`)을 빌드 때 알 수 없어(부모에서 물려받음 등) 브라우저 밑줄로 둡니다. 이 규칙에 색을 쓰면 손그림으로 그립니다.',
-  'fill-image': '배경 이미지가 있어 채움(`--sketch-fill`)을 그리지 않고 원래 배경대로 둡니다.',
-  'link-color': '링크 글자색만 바꾸면 `@sketchify base`의 밑줄은 강조색으로 남아 어긋납니다. 이 규칙에 `text-decoration: underline`을 쓰면 그 색으로 다시 그립니다.',
+  style: 'A border that is not solid (dashed, dotted…) is not sketched; it stays as written.',
+  mixed: 'A border whose sides differ in colour or width is not sketched; it stays as written.',
+  sides: 'A border on two or three sides is not sketched; it stays as written (all four sides or a single side are drawn).',
+  radius: 'This radius (over 32px, %, different per corner, or elliptical) is not sketched; the border stays as written.',
+  unit: 'A border width not in px (em and so on) is not known at build time; the border stays as written.',
+  combo: 'On elements where this rule applies together with another, the resulting border cannot be drawn; it shows as written.',
+  collapse: 'Cell borders in a `border-collapse: collapse` table merge with their neighbours, but sketches are drawn per cell and may look doubled.',
+  transition: 'A border colour `transition` does not fade on a sketch; it changes at once.',
+  clip: 'A rule around this element has `overflow: hidden` (or auto, scroll), which may cut sketched lines that reach outside the border. Padding on the parent, or `overflow: clip` with `overflow-clip-margin`, keeps them whole.',
+  'underline-color': 'The underline colour (`text-decoration-color` or `color`) is not known at build time (inherited from a parent, for example), so the browser underline stays. Write the colour in this rule to get a sketched one.',
+  'fill-image': 'There is a background image, so the fill (`--sketch-fill`) is not drawn; the background stays as written.',
+  'link-color': 'Changing only the link colour leaves the `@sketchify base` underline in the accent colour. Add `text-decoration: underline` to this rule to redraw it in this colour.',
 };
 
 /** A warning of a kind, at a node, with how to turn it off. */
 export const warning = (kind: WarningKind, node: Node | undefined, detail = ''): Diagnostic => ({
   severity: 'warning',
   node,
-  message: `[sketchify:${kind}] ${WHAT[kind]}${detail ? ` (${detail})` : ''} 이 경고를 끄려면 옵션 \`quiet: ['${kind}']\`, 이 규칙만 빼려면 \`--sketch: off\`.`,
+  message: `[sketchify:${kind}] ${WHAT[kind]}${detail ? ` (${detail})` : ''} To silence this warning use the option \`quiet: ['${kind}']\`; to leave this rule out, \`--sketch: off\`.`,
 });
 
 /** The kind of a warning made by `warning`, read back from its message. */

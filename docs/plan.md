@@ -1,90 +1,90 @@
-# 구현 계획
+# Implementation plan
 
-명세(docs/spec.md)를 기준으로 컴파일러를 처음부터 다시 짠다. 첫 목표는 단일 규칙의 테두리를 끝까지 동작시키는 것이고, 가장 큰 위험은 여러 규칙에 걸친 캐스케이드 처리다.
+The compiler is rewritten from scratch against the spec (docs/spec.md). The first goal is a single rule's border working end to end; the biggest risk is the cascade across rules.
 
-## 처리 단계
+## Stages
 
-플러그인은 CSS 파일 하나를 다섯 단계로 처리한다. 그리기 단계는 순수 함수라 같은 입력이면 항상 같은 SVG가 나온다.
+The plugin processes one CSS file in five stages. The draw stage is pure, so the same input always gives the same SVG.
 
-1. **읽기**: 규칙마다 테두리·모서리·배경색·px 크기·`--sketch-*` 제어값을 뽑고, 셀렉터를 분석한다(기본 셀렉터, 상태 가상 클래스, 복합 셀렉터의 부모). 출력: 규칙별 사실 목록.
-2. **모으기**: 같은 요소에 해당하는 규칙을 묶어 완성된 테두리 상태를 만든다. 상태·미디어·수정자 규칙은 부모에서 빠진 값을 받고, 색을 해석하고, 수정자 조합을 펼친다. 이름으로만 추정되는 규칙과 해석 불가능한 색은 여기서 오류가 난다. 출력: 그림 요청 목록과, 어느 셀렉터가 어느 그림을 쓰는지.
-3. **그리기**: 그림 요청을 SVG로 만든다. 요청을 키로 중복을 없애서, 모양과 색이 같으면 한 번만 그린다.
-4. **출력**: 그림을 CSS 변수에 한 번씩 넣고, 규칙에는 투명 테두리·`border-image`·배경을 쓴다. 변형 선택 규칙(`:nth-child`), 조합 규칙, `@sketchify base` 확장도 여기서 만든다.
-5. **진단**: 오류와 경고를 줄 번호와 함께 보고하고, 늘어난 용량(원본, gzip)과 조합으로 늘어난 분량을 예산과 비교한다.
+1. **Read**: from each rule, extract borders, radius, background colour, px sizes and the `--sketch-*` controls, and analyse the selector (base selector, state pseudo-classes, the parent of a compound selector). Output: facts per rule.
+2. **Gather**: group the rules that apply to the same element into complete border states. State, media and modifier rules take missing values from their parent; colours are resolved; modifier combinations are expanded. Rules that could only be guessed from names and colours that cannot be resolved fail here. Output: drawing requests, and which selector uses which drawing.
+3. **Draw**: turn drawing requests into SVG. Requests are deduplicated by key, so the same shape and colour are drawn once.
+4. **Emit**: put each drawing into a CSS variable once, and write transparent borders, `border-image` and backgrounds into the rules. Variant picking rules (`:nth-child`), combination rules and the `@sketchify base` expansion are made here too.
+5. **Report**: report errors and warnings with line numbers, and compare the added size (raw, gzip) and the share added by combinations against the budget.
 
-## 모듈 구조
+## Modules
 
-폴더는 처리 단계와 1:1로 나눈다. `draw/`는 PostCSS를 모르는 순수 함수만 두어, 이후 Houdini나 다른 입력(Tailwind)에서도 그대로 쓴다.
+Folders map 1:1 to the stages. `draw/` holds only pure functions that know nothing of PostCSS, so Houdini or other inputs (Tailwind) can reuse them as is.
 
-| 경로 | 책임 |
+| Path | Responsibility |
 | --- | --- |
-| `src/index.ts` | 플러그인 진입점, 단계 연결 |
-| `src/options.ts` | 옵션 기본값, 거칠기 프리셋, 빗금 옵션, 검증 |
-| `src/read/selectors.ts` | 셀렉터 분석: 기본 셀렉터, 상태 가상 클래스, 복합 셀렉터의 부모 |
-| `src/read/values.ts` | `border`·`border-radius`·배경·색 값 파싱 |
-| `src/read/collect.ts` | 규칙 → 규칙별 사실 목록, `--sketch-*` 제어값 제거 |
-| `src/gather/colors.ts` | 리터럴·`var()` 해석, 미디어 쿼리별 테마 값, 해석 불가 오류 |
-| `src/gather/cascade.ts` | 상태·미디어·수정자 규칙에 부모 값 채우기, 이름 추정 오류 |
-| `src/gather/combos.ts` | 수정자 묶음과 조합 펼치기 |
-| `src/draw/svg.ts` | SVG 문자열, 숫자 정리, data URI 인코딩, 뒤집기 `<g transform>` |
-| `src/draw/stroke.ts` | 9-slice 테두리, 한 변 선 |
-| `src/draw/fill.ts` | 거친 단색, 형광펜 (테두리와 합친 그림) |
-| `src/draw/hatch.ts` | 반복 빗금 무늬, 크기를 아는 요소의 정밀 빗금 |
-| `src/draw/controls.ts` | 체크박스, 라디오, select 화살표, 밑줄 |
-| `src/emit/emit.ts` | 그림 변수, 테두리·배경 선언, `border` 단축 속성 뒤 재선언 |
-| `src/emit/variants.ts` | 자기·부모·조부모 순번 섞기 규칙 |
-| `src/emit/base.ts` | `@sketchify base` 확장 (`@layer`, `:where()`) |
-| `src/report/diagnostics.ts` | 오류·경고 문구와 해결책 안내 |
-| `src/report/budget.ts` | 용량 측정과 예산 경고 |
-| `src/cli.ts` | CLI, `sketchify.config.js` 로딩 |
+| `src/index.ts` | Plugin entry point, wiring the stages |
+| `src/options.ts` | Option defaults, roughness presets, hatch options, validation |
+| `src/read/selectors.ts` | Selector analysis: base selector, state pseudo-classes, the parent of a compound selector |
+| `src/read/values.ts` | Parsing `border`, `border-radius`, background and colour values |
+| `src/read/collect.ts` | Rules → facts per rule, removing the `--sketch-*` controls |
+| `src/gather/colors.ts` | Literal and `var()` resolution, theme values per media query, unresolvable errors |
+| `src/gather/cascade.ts` | Filling state, media and modifier rules from their parent, name-guess errors |
+| `src/gather/combos.ts` | Modifier groups and expanding combinations |
+| `src/draw/svg.ts` | SVG strings, number formatting, data URI encoding, flips with `<g transform>` |
+| `src/draw/stroke.ts` | 9-slice borders, one-sided lines |
+| `src/draw/fill.ts` | Rough solid, marker (drawn with the border) |
+| `src/draw/hatch.ts` | Repeating hatch pattern, exact hatch on elements of known size |
+| `src/draw/controls.ts` | Checkbox, radio, select arrow, underline |
+| `src/emit/emit.ts` | Drawing variables, border and background declarations, redeclaring after the `border` shorthand |
+| `src/emit/variants.ts` | Mixing by own, parent and grandparent index |
+| `src/emit/base.ts` | The `@sketchify base` expansion (`@layer`, `:where()`) |
+| `src/report/diagnostics.ts` | Error and warning text with suggested fixes |
+| `src/report/budget.ts` | Size measurement and the budget warning |
+| `src/cli.ts` | CLI, loading `sketchify.config.js` |
 
-## 작업 순서
+## Order of work
 
-테스트 환경을 먼저 만들고, 단일 규칙 테두리(M1)를 끝까지 동작시킨 뒤 기능을 늘려간다. 각 단계는 앞 단계가 끝난 뒤 시작한다. 크기는 상대적인 작업량이다(S < M < L).
+Set up testing first, make the single-rule border (M1) work end to end, then add features. Each milestone starts after the previous one is done. Size is relative effort (S < M < L).
 
-| 단계 | 범위 | 완료 기준 | 크기 |
+| Milestone | Scope | Done when | Size |
 | --- | --- | --- | --- |
-| M0 준비 | TypeScript, tsup, vitest, Playwright 브라우저 테스트 환경, 테스트용 페이지 | 빈 플러그인으로 레이아웃 불변 테스트가 돈다 | S |
-| M1 단일 규칙 테두리 | 네 변 `border`, 모서리(각진·둥근), 리터럴 색, 9-slice `border-image`, 거칠기 프리셋, `border` 단축 속성 뒤 재선언 | 예시 페이지에서 레이아웃 0px 차이, 출력이 빌드마다 같음 | M |
-| M2 이웃 변형 | seed 3개, SVG 안 뒤집기, 자기·부모·조부모 순번 섞기, 그림 변수 중복 제거 | 이웃한 요소의 그림이 다름. 뒤집기의 압축 후 용량 확인 (미정 항목) | S |
-| M3 색 해석 | `:root` 변수, 미디어 쿼리 테마, `currentColor`·해석 불가·클래스 테마 오류 | 다크 모드 변형이 나오고, 오류 메시지가 해결책을 안내 | M |
-| M4 캐스케이드 | 상태·미디어·복합 셀렉터 규칙 채우기, 이름 추정 오류, 수정자 조합 생성 | 디자인 시스템형 테스트 CSS(크기·색 수정자, hover, 반응형)에서 모든 조합이 올바름 | L |
-| M5 한 변 선 | 한 변 `border`, `hr` (밑줄은 M6d로 옮김) | 긴 목록에서도 구분선이 끝까지 닿음 | S |
-| M6a 채움: 거친 단색·형광펜 | `--sketch-fill` 제어, 단색 그대로, 거친 단색·형광펜(테두리와 합침), 테두리 없는 채움 | 채움 페이지에서 안쪽이 칠해지고 형광펜이 바깥으로 나감 | M |
-| M6b 채움: 반복 빗금 | 크기를 모르는 요소의 이음매 없는 빗금 타일, 빗금 옵션(`gap`, `weight` 등) | 채움 비교 페이지와 같은 결과 | M |
-| M6c 채움: 정밀 빗금 | 크기를 아는 요소(px `width`·`height`, `--sketch-size`)의 선별 빗금, 끝 모양, 테두리 밖 4px | 채움 비교 페이지와 같은 결과 | M |
-| M6d 밑줄 | `text-decoration` 밑줄을 한 변 선 그림으로(테두리 없는 `border-image`, 인라인 요소), 색 해석 | 여러 줄 링크의 줄마다 밑줄이 이어짐 | S |
-| M7a 폼과 base | `@sketchify base`, 인풋·텍스트박스·select(화살표)·체크박스·라디오·hr, base 색과 다크 모드 | 사용자 스타일이 항상 base를 이김, 포커스 링이 보임, 기본 크기 ±4px | M |
-| M7b base 다듬기 | 선택된 라디오의 점, 텍스트박스 크기 조절 손잡이, 링크 기본 밑줄, 버튼 | 시안과 같은 모양, 사용자 스타일이 이김 | S |
-| M8 진단과 예산 | 경고 목록 전체, 용량 보고, 조합 분량 보고, 기본 예산 수치 보정 | 실제 페이지 2~3개로 예산 수치 확정 | S |
-| M9 출시 준비 | CLI, 설정 파일, README, 패키지 검증, 0.1.0 배포 준비(배포는 사용자) | 빈 프로젝트에 설치해 플러그인·CLI 모두 동작 | S |
+| M0 Setup | TypeScript, tsup, vitest, Playwright browser tests, test pages | The layout-invariance test runs against an empty plugin | S |
+| M1 Single-rule border | Four-sided `border`, square and rounded corners, literal colours, 9-slice `border-image`, roughness presets, redeclaring after the `border` shorthand | 0px layout difference on the example pages; identical output on every build | M |
+| M2 Neighbour variants | 3 seeds, flips inside the SVG, mixing by own/parent/grandparent index, deduplicated drawing variables | Neighbouring elements get different drawings. Compressed size of the flips checked (open question) | S |
+| M3 Colour resolution | `:root` variables, media query themes, `currentColor`/unresolvable/class theme errors | Dark-mode variants appear; error messages suggest fixes | M |
+| M4 Cascade | Filling state, media and compound selector rules, name-guess errors, generating modifier combinations | Every combination correct on a design-system-style test CSS (size and colour modifiers, hover, responsive) | L |
+| M5 One-sided lines | One-sided `border`, `hr` (underlines moved to M6d) | Dividers reach the ends even in long lists | S |
+| M6a Fills: rough solid and marker | The `--sketch-fill` control, solid as is, rough solid and marker (with the border), fills without a border | On the fills page the inside is painted and the marker reaches outside | M |
+| M6b Fills: repeating hatch | Seamless hatch tiles for elements of unknown size, hatch options (`gap`, `weight` and so on) | Same result as the fill comparison page | M |
+| M6c Fills: exact hatch | Per-line hatching on elements of known size (px `width`/`height`, `--sketch-size`), end shapes, 4px outside the border | Same result as the fill comparison page | M |
+| M6d Underlines | `text-decoration` underlines as one-sided line drawings (`border-image` without a border, inline elements), colour resolution | A multi-line link gets an underline on each line | S |
+| M7a Forms and base | `@sketchify base`, input, textarea, select (arrow), checkbox, radio, hr, base colours and dark mode | User styles always beat base, the focus ring is visible, default sizes ±4px | M |
+| M7b Base polish | The checked radio's dot, the textarea resize grip, the default link underline, buttons | Looks like the prototype; user styles win | S |
+| M8 Diagnostics and budget | The full warning list, the size report, the combination share, calibrating the default budget | Budget numbers settled with 2–3 real pages | S |
+| M9 Release prep | CLI, config file, README, package checks, getting 0.1.0 ready to publish (the user publishes) | Plugin and CLI both work when installed into an empty project | S |
 
-M1이 끝나면 단일 규칙 테두리만으로도 실제 페이지에 적용해 볼 수 있다. M4는 가장 크고 틀리기 쉬운 단계라, 테스트 CSS를 먼저 만들고 시작한다.
+After M1, single-rule borders alone can be tried on real pages. M4 is the largest and most error-prone milestone, so its test CSS comes first.
 
-## 테스트 전략
+## Testing strategy
 
-핵심 약속인 "레이아웃 불변"은 브라우저에서 직접 잰다. 데모를 만들며 찾은 버그 대부분이 코드만 봐서는 안 보이고 렌더링해야 드러났기 때문이다.
+The core promise, "layout stays put", is measured in the browser. Most bugs found while building the demos were invisible in the code and showed only when rendered.
 
-- **단위 테스트**: 값 파싱, 셀렉터 분석, 색 해석, 캐스케이드 채우기, 조합 펼치기. 모두 순수 함수라 빠르다.
-- **출력 스냅샷**: 테스트 CSS의 출력을 저장해두고, 빌드마다 같은지 확인한다. 그림이 의도치 않게 바뀌는 것을 막는다.
-- **레이아웃 불변 테스트**: 같은 HTML을 원본 CSS와 변환된 CSS로 각각 렌더링하고, 모든 요소의 위치와 크기가 같은지 비교한다. 메가 메뉴·툴팁 시나리오도 포함한다.
-- **픽셀 테스트**: 경계 테스트 페이지처럼 판별이 쉬운 그림으로, 그려져야 할 곳과 아닌 곳의 픽셀을 읽는다.
-- **브라우저**: Chromium과 WebKit(Safari 엔진) 둘 다 Playwright로 CI에서 돌린다.
+- **Unit tests**: value parsing, selector analysis, colour resolution, cascade filling, combination expansion. All pure functions, so fast.
+- **Output snapshots**: the output of the test CSS is stored and checked on every build, so drawings do not change by accident.
+- **Layout-invariance tests**: the same HTML is rendered with the original CSS and with the converted CSS, and every element's position and size are compared. Includes the mega menu and tooltip scenarios.
+- **Pixel tests**: with easy-to-judge drawings like the edge test page, read the pixels where something should and should not be drawn.
+- **Browsers**: both Chromium and WebKit (Safari's engine), with Playwright, in CI.
 
-## 위험 요소
+## Risks
 
-| 위험 | 대응 |
+| Risk | Response |
 | --- | --- |
-| 캐스케이드 채우기가 실제 CSS의 다양한 셀렉터(`:is()`, `:where()`, 셀렉터 목록, 자손 결합자)에서 틀린 부모를 고름 | 부모는 "셀렉터에 그대로 들어 있는 경우"만 인정. 확실하지 않으면 오류로 돌리고, 셀렉터 분석은 postcss-selector-parser로 |
-| CSS 중첩 문법(`&`)을 그대로 받으면 셀렉터를 잘못 읽음 | 중첩 풀기 플러그인 뒤에 오도록 문서화하고, 중첩이 남아 있으면 오류 |
-| 수정자 조합이 많은 디자인 시스템에서 용량이 크게 늘어남 | 조합 분량을 예산 경고에 따로 표시, 실제 디자인 시스템 CSS로 M8에서 측정 |
-| `currentColor` 오류가 너무 자주 나서 처음 쓰는 사람이 포기함 | 오류 메시지에 "색을 생략하면 `currentColor`가 된다"는 설명과 고칠 줄을 표시 |
-| Safari에서만 다르게 그려지는 경우 | 로컬과 CI에서 WebKit 테스트를 M0부터 돌림 |
+| Cascade filling picks the wrong parent for real-world selectors (`:is()`, `:where()`, selector lists, descendant combinators) | A parent counts only when it is literally contained in the selector. When unsure, make it an error; analyse selectors with postcss-selector-parser |
+| Taking CSS nesting (`&`) as is misreads selectors | Document that the plugin runs after a nesting plugin; error if nesting remains |
+| Design systems with many modifier combinations grow the size a lot | Show the combination share separately in the budget warning; measure with real design-system CSS in M8 |
+| `currentColor` errors come up so often that first-time users give up | The error message explains that "a missing colour means `currentColor`" and shows the line to fix |
+| Things drawn differently only in Safari | Run WebKit tests locally and in CI from M0 |
 
-## 시안에서 가져올 것
+## What to take from the prototypes
 
-그리는 코드는 데모에서 검증된 것을 옮겨 오고, PostCSS 플러그인 부분은 버린다. 시안 코드는 `prototypes/`에 있다.
+The drawing code is ported from what the demos proved; the PostCSS plugin part is dropped. The prototype code is in `prototypes/`.
 
-- **가져올 것**: 9-slice 테두리 그리기와 모서리 조각 규칙, 거친 단색·형광펜 그리기, 필압을 가진 빗금 무늬(반복 경계에서 이어지는 버전), 크기를 아는 요소의 정밀 빗금, 체크박스·라디오·화살표·밑줄, SVG 숫자 정리와 인코딩, 레이아웃 비교·픽셀 측정 스크립트
-- **버릴 것**: 0.1.0 패키지 시안의 변환 로직(가상요소 + mask 방식, 폰트 교체, 통짜 SVG 늘이기), 빗금 끝을 띠로 잘라내는 코드, 페이드 처리
-- **패키지 설정은 재사용**: tsup 이중 빌드(ESM·CJS), CJS에서 `require()`로 바로 쓰는 처리, CLI의 파이프 닫힘 처리
+- **Take**: 9-slice border drawing and the corner slice rules, rough solid and marker drawing, the hatch pattern with pressure (the version that continues across tile edges), exact hatching on elements of known size, checkbox, radio, arrow and underline, SVG number formatting and encoding, the layout comparison and pixel measuring scripts
+- **Drop**: the conversion logic of the 0.1.0 package prototype (pseudo-element + mask, font replacement, stretching one whole SVG), the code that cuts hatch ends with a band, fades
+- **Reuse the package setup**: the tsup dual build (ESM and CJS), using it directly with `require()` from CJS, the CLI's closed-pipe handling
