@@ -13,4 +13,11 @@ describe('landing page CSS', () => {
     expect(result.warnings().map((w) => w.text)).toEqual([]);
     expect(result.css).toContain('border-image: var(--sk)');
   });
+
+  it('draws the divider tag without warnings', async () => {
+    const tag = readFileSync(new URL('../../site/src/tag.css', import.meta.url), 'utf8');
+    const result = await postcss([sketchify({ roughness: 'normal' })]).process(tag, { from: 'site/src/tag.css' });
+    expect(result.warnings().map((w) => w.text)).toEqual([]);
+    expect(result.css).toContain('border-image: var(--sk)');
+  });
 });

@@ -29,7 +29,9 @@ const build = async () => {
   const sketches = await Promise.all(
     ROUGHNESS.map(async (roughness) => ({ roughness, result: await postcss([sketchify({ roughness })]).process(css, { from: join(SRC, 'style.css') }) })),
   );
-  const warnings = sketches.flatMap(({ roughness, result }) => result.warnings().map((w) => `${roughness}: ${w.line ?? '?'}:${w.column ?? '?'} ${w.text}`));
+  // The divider's "sketchified" tag is drawn by the plugin too.
+  const tag = await postcss([sketchify({ roughness: 'normal' })]).process(read('tag.css'), { from: join(SRC, 'tag.css') });
+  const warnings = [...tag.warnings().map((w) => `tag: ${w.text}`), ...sketches.flatMap(({ roughness, result }) => result.warnings().map((w) => `${roughness}: ${w.line ?? '?'}:${w.column ?? '?'} ${w.text}`))];
   if (warnings.length > 0) {
     console.error(`site: ${warnings.length} warning(s); the page must be drawn completely.\n${warnings.join('\n')}`);
     process.exitCode = 1;
@@ -44,6 +46,7 @@ const build = async () => {
     writeFileSync(join(OUT, `sketch-${roughness}.css`), result.css);
     writeFileSync(join(OUT, `sketch-${roughness}.html`), page(`sketchify: ${roughness}`, [`sketch-${roughness}.css`, 'hand.css'], body));
   });
+  writeFileSync(join(OUT, 'tag.css'), tag.css);
   ['shell.css', 'shell.js', 'hand.css', 'fonts'].forEach((name) => cpSync(join(SRC, name), join(OUT, name), { recursive: true }));
   writeFileSync(join(OUT, 'index.html'), read('shell.html'));
 

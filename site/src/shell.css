@@ -60,7 +60,7 @@ body.dragging { cursor: ew-resize; user-select: none; }
   border: 2px solid var(--ink);
 }
 .divider__tag--raw { right: 24px; }
-.divider__tag--sketch { left: 24px; background: var(--yellow); }
+.divider__tag--sketch { left: 24px; } /* Its look is in tag.css, drawn by sketchify. */
 
 /* The roughness switch. */
 .dock {
