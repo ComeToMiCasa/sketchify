@@ -1,0 +1,56 @@
+name: Pages
+
+# Builds the landing page (site/) and publishes it to GitHub Pages. It runs only when something the
+# page is built from changes: the page itself, the plugin that draws its sketched half, or the
+# dependencies. Run it by hand from the Actions tab otherwise.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push waits rather than cancelling one in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # Lint, unit tests (including the page compiling without warnings) and the page's layout test,
+  # then the build. Nothing is published if any of them fails.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test test/browser/site.spec.ts --project=chromium
+      - run: npm run site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
