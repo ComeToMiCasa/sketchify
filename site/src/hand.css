@@ -1,0 +1,6 @@
+/* The sketched copy only, and not something postcss-sketchify does: the same text in Monaspace
+ * Radon, a handwritten face with the same metrics as Monaspace Neon, so no line breaks differently. */
+@font-face { font-family: 'Monaspace Radon'; src: url('fonts/MonaspaceRadon-Regular.woff2') format('woff2'); font-weight: 400; font-display: block; }
+@font-face { font-family: 'Monaspace Radon'; src: url('fonts/MonaspaceRadon-Bold.woff2') format('woff2'); font-weight: 700; font-display: block; }
+
+:root { --mono: 'Monaspace Radon', ui-monospace, Menlo, Consolas, monospace; }

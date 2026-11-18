@@ -1,5 +1,6 @@
 // Builds the landing page into site/dist: the original CSS as it is (raw), the same CSS through
-// postcss-sketchify at each roughness, and the split-screen shell that lays one over the other.
+// postcss-sketchify at each roughness (with hand.css: the handwritten font, the page's own choice),
+// and the split-screen shell that lays one over the other.
 // Uses the plugin build in dist/ (`npm run site` builds it first). Any warning fails the build, so
 // everything on the page is really drawn.
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -15,10 +16,10 @@ export const ROUGHNESS = ['subtle', 'normal', 'messy'];
 
 const read = (name) => readFileSync(join(SRC, name), 'utf8');
 
-/** A page of the stack: the shared body HTML with one stylesheet. */
-const page = (title, css, body) =>
+/** A page of the stack: the shared body HTML with its stylesheets. */
+const page = (title, sheets, body) =>
   `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n` +
-  `<title>${title}</title>\n<link rel="stylesheet" href="${css}">\n</head>\n<body>\n${body}</body>\n</html>\n`;
+  `<title>${title}</title>\n${sheets.map((href) => `<link rel="stylesheet" href="${href}">\n`).join('')}</head>\n<body>\n${body}</body>\n</html>\n`;
 
 const kb = (bytes) => `${(bytes / 1024).toFixed(1)}KB`;
 
@@ -38,12 +39,12 @@ const build = async () => {
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
   writeFileSync(join(OUT, 'raw.css'), css);
-  writeFileSync(join(OUT, 'raw.html'), page('sketchify: original CSS', 'raw.css', body));
+  writeFileSync(join(OUT, 'raw.html'), page('sketchify: original CSS', ['raw.css'], body));
   sketches.forEach(({ roughness, result }) => {
     writeFileSync(join(OUT, `sketch-${roughness}.css`), result.css);
-    writeFileSync(join(OUT, `sketch-${roughness}.html`), page(`sketchify: ${roughness}`, `sketch-${roughness}.css`, body));
+    writeFileSync(join(OUT, `sketch-${roughness}.html`), page(`sketchify: ${roughness}`, [`sketch-${roughness}.css`, 'hand.css'], body));
   });
-  ['shell.css', 'shell.js'].forEach((name) => cpSync(join(SRC, name), join(OUT, name)));
+  ['shell.css', 'shell.js', 'hand.css', 'fonts'].forEach((name) => cpSync(join(SRC, name), join(OUT, name), { recursive: true }));
   writeFileSync(join(OUT, 'index.html'), read('shell.html'));
 
   sketches.forEach(({ roughness, result }) => {

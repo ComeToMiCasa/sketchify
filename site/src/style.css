@@ -1,7 +1,13 @@
 /* The landing page, written as plain brutalist CSS. The right half of the page is this file run
  * through postcss-sketchify; the left half is this file as it is. Everything here is something the
  * plugin draws: solid px borders, square or small radius corners, one-sided lines, link underlines
- * and --sketch-fill. No shadows, gradients, dashed lines or web fonts. */
+ * and --sketch-fill. No shadows, gradients or dashed lines.
+ *
+ * All text is set in Monaspace Neon, a monospaced font. The sketched copy swaps it for Monaspace
+ * Radon (hand.css, not part of the plugin): the two share every metric, so the swap moves nothing. */
+@font-face { font-family: 'Monaspace Neon'; src: url('fonts/MonaspaceNeon-Regular.woff2') format('woff2'); font-weight: 400; font-display: block; }
+@font-face { font-family: 'Monaspace Neon'; src: url('fonts/MonaspaceNeon-Bold.woff2') format('woff2'); font-weight: 700; font-display: block; }
+
 :root {
   --paper: #f3efe6;
   --ink: #111111;
@@ -11,14 +17,13 @@
   --yellow-soft: #ffd23f;
   --blue-soft: #9fb0ff;
   --red-soft: #ffab96;
-  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono: 'Monaspace Neon', ui-monospace, Menlo, Consolas, monospace;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 html { background: var(--paper); }
-body { margin: 0; font: 17px/1.55 var(--sans); color: var(--ink); background: var(--paper); }
+body { margin: 0; font: 16px/1.6 var(--mono); color: var(--ink); background: var(--paper); }
 h1, h2, h3 { font-family: var(--mono); line-height: 1.1; margin: 0; }
 p { margin: 0; }
 code { font-family: var(--mono); font-size: 0.92em; }
