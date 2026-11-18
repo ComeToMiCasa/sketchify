@@ -14,7 +14,7 @@ const layoutWith = async (page: Page, html: string, css: string): Promise<Layout
 
 /**
  * Pages with `@sketchify base`: the base replaces the browser's look of form controls and is held
- * only to staying close to the browser's sizes (spec "폼 요소와 @sketchify base"), checked in base.spec.ts.
+ * only to staying close to the browser's sizes (spec "Form controls and @sketchify base"), checked in base.spec.ts.
  */
 const BASE_PAGES: ReadonlySet<string> = new Set(['base']);
 
@@ -48,7 +48,7 @@ test.describe('layout is unchanged in dark mode', () => {
 });
 
 // Negative controls: the comparison must catch the bugs the spec records
-// (docs/spec.md "구현 주의점"), otherwise the tests above prove nothing.
+// (docs/spec.md "Implementation pitfalls"), otherwise the tests above prove nothing.
 test.describe('the layout comparison catches real breakage', () => {
   const broken: ReadonlyArray<readonly [title: string, page: string, extraCss: string, expected: RegExp]> = [
     ['a border 1px wider', 'boxes', '.box.w1 { border-width: 2px; }', /rect/],

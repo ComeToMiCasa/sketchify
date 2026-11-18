@@ -4,7 +4,7 @@ import { transform } from '../helpers/transform';
 import { type Rect, type Screenshot, pixelAt, screenshot } from './lib/pixels';
 import { render } from './lib/render';
 
-// The M4 oracle (spec "여러 규칙에 걸친 테두리": draw what the original CSS shows).
+// The M4 oracle (spec "Borders across rules": draw what the original CSS shows).
 //
 // The browser itself runs the original cascade: render the original CSS, read every element's
 // computed border, and write it back as one complete `!important` rule per element. Transformed,

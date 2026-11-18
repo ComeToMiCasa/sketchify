@@ -28,4 +28,4 @@ const page = readFileSync(join(here, 'page.html'), 'utf8').replace('/*SCRIPT*/',
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, 'hatch.html'), page);
 rmSync(tmp, { recursive: true, force: true });
-console.log(`빗금 슬라이더: ${join(out, 'hatch.html')}`);
+console.log(`Hatch sliders: ${join(out, 'hatch.html')}`);
