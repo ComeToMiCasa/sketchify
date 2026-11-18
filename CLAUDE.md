@@ -11,7 +11,7 @@ A PostCSS plugin that turns plain CSS into a hand-drawn style while leaving the 
 
 - `npm run lint`: type check (tsc) + ESLint (enforces the coding conventions below)
 - `npm test`: unit tests + output snapshots + lint rule checks
-- `npm run test:browser`: layout-invariance and pixel tests (Playwright, Chromium and WebKit)
+- `npm run test:browser`: layout-invariance and pixel tests (Playwright, Chromium, Firefox and WebKit)
 - `npm run build`: package build
 
 ## Rules

@@ -10,7 +10,7 @@ A PostCSS plugin that turns the borders, fills and underlines of plain CSS into 
 .card { border: 2px solid #1d2433; border-color: transparent; border-image: var(--sk) 16 / 16px / 3px stretch; … }
 ```
 
-- **Layout stays put.** Every element keeps its position and size. Borders keep their width and style; only their colour turns transparent and a drawing takes its place (`border-image`). This is tested in Chromium and WebKit on every change.
+- **Layout stays put.** Every element keeps its position and size. Borders keep their width and style; only their colour turns transparent and a drawing takes its place (`border-image`). This is tested in Chromium, Firefox and WebKit on every change.
 - **No JavaScript at runtime.** The drawings are SVGs written into the CSS at build time ([Rough.js](https://roughjs.com) style, deterministic: the same CSS always gives the same output).
 - **Neighbours differ.** Elements next to each other get different drawings (3 seeds × 4 mirrorings), so a list of cards does not look stamped.
 - **Hover, focus and dark mode** keep the same shape in another colour. Colours from `var()` are resolved at build time, including `@media (prefers-color-scheme: dark)` themes.
@@ -21,7 +21,7 @@ A PostCSS plugin that turns the borders, fills and underlines of plain CSS into 
 npm install --save-dev postcss-sketchify postcss
 ```
 
-Node 20 or later. Supported browsers: Chromium-based browsers (Chrome, Edge, Samsung Internet) and Safari, including every browser on iOS. Firefox is not supported.
+Node 20 or later. Supported browsers: Chromium-based browsers (Chrome, Edge, Samsung Internet), Firefox and Safari, on desktop and mobile.
 
 ## Use with PostCSS
 
@@ -127,6 +127,7 @@ The full size report is always available as a PostCSS message of type `sketchify
 
 - **Your own CSS only.** CSS frameworks (Bootstrap, Pico…) rely on attribute themes and component variables changed by classes, which cannot be resolved at build time; most of their rules end in errors.
 - The compiler does not know the HTML. Element sizes are known only from px `width`/`height` or `--sketch-size`; parents only from selectors.
+- Firefox: when a hover swaps the drawing, the border can go blank for one frame (a brief flicker). Chromium and Safari do not do this.
 - Drawings are fixed SVGs, so files grow: typically 2–11KB gzip per page, more with many combinations or exact hatches. The `budget` warning tells you when.
 
 ## License

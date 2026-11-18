@@ -160,7 +160,9 @@ test.describe('M7a @sketchify base', () => {
     expect(count(await screenshot(p), { x: btn.x + 4, y: btn.y - 6, width: btn.width - 8, height: 4 }, blue), 'focus ring').toBeGreaterThan(5);
   });
 
-  test('the textarea resize grip is drawn in ink', async ({ page: p }) => {
+  test('the textarea resize grip is drawn in ink', async ({ page: p, browserName }) => {
+    // Firefox has no ::-webkit-resizer; it keeps its default grip (spec "Form controls and @sketchify base").
+    test.skip(browserName === 'firefox', 'Firefox keeps its default textarea grip');
     const original = await shoot(p, page.css);
     const memo = await rectOf(p, '#memo');
     const corner = { x: memo.x + memo.width - 16, y: memo.y + memo.height - 16, width: 13, height: 13 };

@@ -69,7 +69,7 @@ The core promise, "layout stays put", is measured in the browser. Most bugs foun
 - **Output snapshots**: the output of the test CSS is stored and checked on every build, so drawings do not change by accident.
 - **Layout-invariance tests**: the same HTML is rendered with the original CSS and with the converted CSS, and every element's position and size are compared. Includes the mega menu and tooltip scenarios.
 - **Pixel tests**: with easy-to-judge drawings like the edge test page, read the pixels where something should and should not be drawn.
-- **Browsers**: both Chromium and WebKit (Safari's engine), with Playwright, in CI.
+- **Browsers**: Chromium, Firefox and WebKit (Safari's engine), with Playwright, in CI (Firefox added 2026-11-18).
 
 ## Risks
 
@@ -79,7 +79,7 @@ The core promise, "layout stays put", is measured in the browser. Most bugs foun
 | Taking CSS nesting (`&`) as is misreads selectors | Document that the plugin runs after a nesting plugin; error if nesting remains |
 | Design systems with many modifier combinations grow the size a lot | Show the combination share separately in the budget warning; measure with real design-system CSS in M8 |
 | `currentColor` errors come up so often that first-time users give up | The error message explains that "a missing colour means `currentColor`" and shows the line to fix |
-| Things drawn differently only in Safari | Run WebKit tests locally and in CI from M0 |
+| Things drawn differently only in Safari or Firefox | Run WebKit tests locally and in CI from M0, Firefox tests since 2026-11-18 |
 
 ## What to take from the prototypes
 

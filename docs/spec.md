@@ -333,7 +333,7 @@ The compiler does not know an element's real size. So most things use structures
 
 ## Distribution and quality
 
-The PostCSS plugin is the core; the CLI is a thin layer on top. Supported browsers are Chromium-based browsers and Safari.
+The PostCSS plugin is the core; the CLI is a thin layer on top. Supported browsers are Chromium-based browsers, Firefox and Safari.
 
 - **PostCSS plugin**: the default way of use, because the dev server must look like production. Vite, Next.js, webpack and Parcel read `postcss.config.js`, so there are no tool-specific plugins.
 - **CLI**: a thin tool around the plugin, for static sites without a build tool and quick tries. It shares the plugin's config file (`sketchify.config.js`). The font options of the prototype are gone. (Decided in M9, 2026-11-16)
@@ -351,7 +351,9 @@ The PostCSS plugin is the core; the CLI is a thin layer on top. Supported browse
   - `sketchify` (`packages/sketchify/`): a small package calling the same CLI, for `npx sketchify` directly. A package that only holds a name can be reclaimed under npm policy, so it was published as a CLI package that is actually used.
   - Both are 0.1.0. The user publishes them, postcss-sketchify first, then sketchify. Remote repository and CI were outside M9 (user decision).
 - **Deduplication**: PostCSS processes CSS files one at a time. The MVP reuses the same drawing through a CSS variable within one file only. Deduplication across files is later work.
-- **Supported browsers**: Chromium-based (Chrome, Edge, Samsung Internet and so on) and Safari. Confirmed working in Safari. Every browser on iOS uses WebKit, so Safari support covers iPhone and iPad. Firefox is out of scope.
+- **Supported browsers**: Chromium-based (Chrome, Edge, Samsung Internet and so on), Firefox and Safari, on desktop and mobile (every browser on iOS uses WebKit). Firefox was added after the user confirmed it works (user decision 2026-11-18); the browser tests run in all three engines.
+  - Known issue in Firefox: when hover swaps the drawing, the border goes blank for one frame and flickers (still present 2026-11-18; not in Chromium or Safari). Probably because the original border colour is `transparent`, so nothing shows while the new `border-image` is not ready.
+  - Firefox has no `::-webkit-resizer`, so the textarea keeps its default grip there (see "Form controls and @sketchify base").
 - **Supported Node**: 20 and later (`engines: ">=20"`). Dev tools (tsup, vitest) use versions that run on Node 20, and CI runs Node 20.
 - **Size budget** (M8): never fails the build. Only when the added gzip size exceeds the budget does it warn (`[sketchify:budget]`), with the size and the 5 rules that added the most (in the source; a drawing counts for the rule that used it first) (user decision 2026-11-15).
   - The report is always left as a PostCSS message: `{ type: 'sketchify-report', before, after (raw and gzip), drawings, comboRules, comboDrawings, top }` in `result.messages`. The CLI (M9) shows it. No brotli (250–400ms per large file at default quality, on every build).
@@ -482,7 +484,7 @@ To finish the MVP spec, the items below had to be decided.
 - [x] Elements with a fill and no border: handled like any other element
 - [x] Default hatch ends: `square`
 - [x] Distribution: PostCSS plugin core + thin CLI
-- [x] Supported browsers: Chromium-based and Safari
+- [x] Supported browsers: Chromium-based, Firefox (since 2026-11-18) and Safari
 - [x] Drawing structure: approach A (the element's own `border-image` and background, fixed colours)
 - [x] Colours not known at build time: compile error
 - [x] Cases `border-image` cannot express: warning
@@ -502,6 +504,6 @@ Later versions:
 - Measuring real sizes with a headless browser
 - Per-rule roughness overrides
 - Deduplicating drawings across CSS files
-- Firefox support (approach A uses only `border-image`, so most of it likely works; decide on official support after checking). Known issue: when hover swaps the drawing, the border goes blank for one frame and flickers (not in Chrome or Safari).
+- Firefox hover flicker: when hover swaps the drawing, the border goes blank for one frame (Firefox is supported since 2026-11-18; this is the known issue left). Look for a way to pre-decode hover drawings.
 - Drawing stability and versioning: shapes changing with class names or library updates
 - High contrast mode (`forced-colors`)
