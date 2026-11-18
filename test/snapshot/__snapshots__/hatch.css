@@ -80,7 +80,7 @@
 :where(:nth-child(3n+3) > :nth-child(3n+2) > :nth-child(3n+3)) { --skh: 127px 127px; }
 :where(:nth-child(3n+3) > :nth-child(3n+3) > :nth-child(3n+1)) { --skh: 61px 61px; }
 :where(:nth-child(3n+3) > :nth-child(3n+3) > :nth-child(3n+2)) { --skh: 127px 127px; }
-/* M6b example: hatch fill on elements of unknown size (spec "채움").
+/* M6b example: hatch fill on elements of unknown size (spec "Fills").
    Hatch blue #3b82f6 (dark: amber #f59e0b), hover green #16a34a.
    Heights are `min-height`, so the size stays unknown to the compiler: px width and height would
    give an exact hatch (M6c, see test/pages/exact-hatch). */

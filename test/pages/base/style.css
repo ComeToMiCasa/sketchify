@@ -1,4 +1,4 @@
-/* M7a example: `@sketchify base` on unstyled form controls and hr (spec "폼 요소와 @sketchify base").
+/* M7a example: `@sketchify base` on unstyled form controls and hr (spec "Form controls and @sketchify base").
    Base is not held to the layout promise, only to staying close to the browser's sizes; this page is
    left out of the layout test (test/browser/layout.spec.ts) and measured in base.spec.ts instead.
    One field has the page's own style, which must win over the base. */

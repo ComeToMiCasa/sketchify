@@ -504,7 +504,7 @@
 :where(:nth-child(3n+3) > :nth-child(3n+3) > :nth-child(3n+2)) { --sk: var(--sk-2); }
 /*
  * M4 test CSS: a small design system whose borders are spread over several rules.
- * Each rule's "기대" comment is the result M4 must give (spec "여러 규칙에 걸친 테두리": draw what
+ * Each rule's "expected" comment is the result M4 must give (spec "Borders across rules": draw what
  * the original CSS shows, with combination rules where needed). Error inputs are in
  * test/fixtures/cascade/.
  *
@@ -529,7 +529,7 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
 
 /* ---------------------------------------------------------------- Button */
 
-/* 기대: 그대로 그림 (한 규칙에서 완성). 2px, 모서리 6, --ink. */
+/* Expected: drawn as is (complete in one rule). 2px, radius 6, --ink. */
 .btn {
   font: inherit;
   padding: 8px 16px;
@@ -570,15 +570,15 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
   }
 }
 
-/* 크기 묶음: 두께와 모서리를 바꾼다.
-   기대: 셀렉터에 부모 .btn이 들어 있으므로 .btn에서 스타일·색을 받아 그림. */
+/* Size group: changes width and radius.
+   Expected: the selector contains the parent .btn, so style and colour come from .btn. */
 .btn.btn--sm { padding: 4px 10px; font-size: 13px; border-width: 1px; border-color: transparent; --sk-0-0: var(--sk-25ad982b); --sk-0-1: var(--sk-4bb7bd3b); --sk-0-2: var(--sk-833a01c5); --sk-0-3: var(--sk-02ada9b4); --sk-1-0: var(--sk-8f03c817); --sk-1-1: var(--sk-7a776287); --sk-1-2: var(--sk-3f2f3d09); --sk-1-3: var(--sk-365b83b4); --sk-2-0: var(--sk-f5459b0d); --sk-2-1: var(--sk-fd9bb8bd); --sk-2-2: var(--sk-af0297ff); --sk-2-3: var(--sk-5ff32b9e); border-image: var(--sk) 8 / 8px / 3.5px stretch; border-radius: 4px; }
 @media (prefers-color-scheme: dark) { .btn.btn--sm { --sk-0-0: var(--sk-7ecb972f); --sk-0-1: var(--sk-8ae1bb7f); --sk-0-2: var(--sk-3e5f5ab5); --sk-0-3: var(--sk-fa17b500); --sk-1-0: var(--sk-a1caca83); --sk-1-1: var(--sk-324f0a33); --sk-1-2: var(--sk-b1297919); --sk-1-3: var(--sk-b25b2ad8); --sk-2-0: var(--sk-d1693991); --sk-2-1: var(--sk-7278a381); --sk-2-2: var(--sk-ebfc954f); --sk-2-3: var(--sk-d72063aa); border-image: var(--sk) 8 / 8px / 3.5px stretch; } }
 .btn.btn--lg { padding: 12px 22px; font-size: 17px; border-width: 3px; border-color: transparent; --sk-0-0: var(--sk-ae2de0b2); --sk-0-1: var(--sk-29b90abb); --sk-0-2: var(--sk-b678b205); --sk-0-3: var(--sk-ececdc1b); --sk-1-0: var(--sk-ac279628); --sk-1-1: var(--sk-b0c30f0b); --sk-1-2: var(--sk-31e5c691); --sk-1-3: var(--sk-22fe4d6b); --sk-2-0: var(--sk-ceff55c8); --sk-2-1: var(--sk-8154b35f); --sk-2-2: var(--sk-08894b95); --sk-2-3: var(--sk-875cd7bf); border-image: var(--sk) 14 / 14px / 2.5px stretch; border-radius: 10px; }
 @media (prefers-color-scheme: dark) { .btn.btn--lg { --sk-0-0: var(--sk-c7a43e2a); --sk-0-1: var(--sk-19ba3343); --sk-0-2: var(--sk-b7772e21); --sk-0-3: var(--sk-70b191a3); --sk-1-0: var(--sk-7d37e480); --sk-1-1: var(--sk-ddffabb3); --sk-1-2: var(--sk-88dd753d); --sk-1-3: var(--sk-bab71c13); --sk-2-0: var(--sk-e44170a0); --sk-2-1: var(--sk-2bdf7467); --sk-2-2: var(--sk-9d88ccb1); --sk-2-3: var(--sk-cc0b5dc7); border-image: var(--sk) 14 / 14px / 2.5px stretch; } }
 
-/* 색 묶음: 색만 바꾼다.
-   기대: .btn에서 두께·스타일·모서리를 받아 그림. */
+/* Colour group: changes the colour only.
+   Expected: width, style and radius come from .btn. */
 .btn.btn--primary { border-color: var(--primary); border-color: transparent; --sk-0-0: var(--sk-f7623dcf); --sk-0-1: var(--sk-74d21ee8); --sk-0-2: var(--sk-10cc28f2); --sk-0-3: var(--sk-229e1080); --sk-1-0: var(--sk-8c136bf6); --sk-1-1: var(--sk-997c846b); --sk-1-2: var(--sk-a95f29ad); --sk-1-3: var(--sk-05daf773); --sk-2-0: var(--sk-d7caab94); --sk-2-1: var(--sk-549cac37); --sk-2-2: var(--sk-6417b235); --sk-2-3: var(--sk-92b934df); border-image: var(--sk) 10 / 10px / 3px stretch; }
 @media (prefers-color-scheme: dark) { .btn.btn--primary { --sk-0-0: var(--sk-2f6c7d29); --sk-0-1: var(--sk-c0264b4e); --sk-0-2: var(--sk-97f1ea7c); --sk-0-3: var(--sk-a5bc77d6); --sk-1-0: var(--sk-ae62f988); --sk-1-1: var(--sk-9a9966f1); --sk-1-2: var(--sk-bfcf9227); --sk-1-3: var(--sk-e74564c9); --sk-2-0: var(--sk-256bd75a); --sk-2-1: var(--sk-e179ea59); --sk-2-2: var(--sk-61dca9a3); --sk-2-3: var(--sk-f0df0d71); border-image: var(--sk) 10 / 10px / 3px stretch; } }
 .btn.btn--sm.btn--primary { border-color: transparent; --sk-0-0: var(--sk-3b33946d); --sk-0-1: var(--sk-61ba5bdd); --sk-0-2: var(--sk-babe56f7); --sk-0-3: var(--sk-d3d00a32); --sk-1-0: var(--sk-1b1136e1); --sk-1-1: var(--sk-696323b1); --sk-1-2: var(--sk-721a337b); --sk-1-3: var(--sk-58c707c2); --sk-2-0: var(--sk-c7ca9217); --sk-2-1: var(--sk-f9ee7527); --sk-2-2: var(--sk-a5fed309); --sk-2-3: var(--sk-4b8d7ae4); border-image: var(--sk) 8 / 8px / 3.5px stretch; }
@@ -589,15 +589,15 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
 .btn.btn--sm.btn--danger { border-color: transparent; --sk-0-0: var(--sk-f633d55e); --sk-0-1: var(--sk-64c7dcce); --sk-0-2: var(--sk-602b230c); --sk-0-3: var(--sk-7fb2e4e9); --sk-1-0: var(--sk-693da2a6); --sk-1-1: var(--sk-8747cbb6); --sk-1-2: var(--sk-a280a9bc); --sk-1-3: var(--sk-858e5765); --sk-2-0: var(--sk-4471e480); --sk-2-1: var(--sk-46e22710); --sk-2-2: var(--sk-60549d26); --sk-2-3: var(--sk-8c1332c3); border-image: var(--sk) 8 / 8px / 3.5px stretch; }
 .btn.btn--lg.btn--danger { border-color: transparent; --sk-0-0: var(--sk-81aacc79); --sk-0-1: var(--sk-e623c564); --sk-0-2: var(--sk-d6cc7052); --sk-0-3: var(--sk-55e6ac44); --sk-1-0: var(--sk-21383495); --sk-1-1: var(--sk-d5c856fe); --sk-1-2: var(--sk-2daa81c8); --sk-1-3: var(--sk-d8848ade); --sk-2-0: var(--sk-32e5ff89); --sk-2-1: var(--sk-8366bc9e); --sk-2-2: var(--sk-253c68e8); --sk-2-3: var(--sk-1397e7fe); border-image: var(--sk) 14 / 14px / 2.5px stretch; }
 
-/* 기대: 크기 묶음 × 색 묶음의 조합 규칙과 그림을 자동 생성
+/* Expected: combination rules and drawings generated for size group × colour group
    (.btn.btn--sm.btn--primary, .btn.btn--sm.btn--danger, .btn.btn--lg.btn--primary, .btn.btn--lg.btn--danger).
-   예: .btn.btn--lg.btn--danger는 3px, 모서리 10, --danger. */
+   e.g. .btn.btn--lg.btn--danger is 3px, radius 10, --danger. */
 
-/* 상태: 같은 셀렉터(.btn)에 가상 클래스. 색만 바꾼다.
-   기대: .btn에서 나머지를 받아 그림. 모양(칸)은 그대로, 색만 바뀜.
-   크기 수정자와는 바꾸는 속성이 달라 조합을 만든다: .btn.btn--sm:hover, .btn.btn--lg:hover,
-   .btn.btn--sm:focus-visible, .btn.btn--lg:focus-visible (예: 크게·hover는 3px, 모서리 10, --hover).
-   색 수정자와는 같은 속성(색)이라 조합하지 않는다: 원래 CSS처럼 나중 규칙(hover)이 이김. */
+/* States: pseudo-classes on the same selector (.btn). Change the colour only.
+   Expected: the rest comes from .btn. The shape (slot) stays; only the colour changes.
+   Size modifiers change other properties, so they combine: .btn.btn--sm:hover, .btn.btn--lg:hover,
+   .btn.btn--sm:focus-visible, .btn.btn--lg:focus-visible (e.g. large + hover is 3px, radius 10, --hover).
+   Colour modifiers change the same property (colour), so no combination: the later rule (hover) wins as in the original CSS. */
 .btn:hover { border-color: var(--hover); border-color: transparent; --sk-0-0: var(--sk-79fa9754); --sk-0-1: var(--sk-ccd869e3); --sk-0-2: var(--sk-5bc73381); --sk-0-3: var(--sk-bc1cf02b); --sk-1-0: var(--sk-b15279cf); --sk-1-1: var(--sk-9a0e7882); --sk-1-2: var(--sk-b0d0c370); --sk-1-3: var(--sk-94fa7dfa); --sk-2-0: var(--sk-3e26e04b); --sk-2-1: var(--sk-7ef2c670); --sk-2-2: var(--sk-5084b522); --sk-2-3: var(--sk-b5c23fc8); border-image: var(--sk) 10 / 10px / 3px stretch; }
 .btn.btn--sm:hover { border-color: transparent; --sk-0-0: var(--sk-c44896ba); --sk-0-1: var(--sk-13e5a9ea); --sk-0-2: var(--sk-1f75e308); --sk-0-3: var(--sk-c0faa1b5); --sk-1-0: var(--sk-e30f1cda); --sk-1-1: var(--sk-efd92e6a); --sk-1-2: var(--sk-4c15c650); --sk-1-3: var(--sk-f88e5019); --sk-2-0: var(--sk-84b24e7c); --sk-2-1: var(--sk-a0449c0c); --sk-2-2: var(--sk-22aecc42); --sk-2-3: var(--sk-f0cec44f); border-image: var(--sk) 8 / 8px / 3.5px stretch; }
 .btn.btn--lg:hover { border-color: transparent; --sk-0-0: var(--sk-35d952b5); --sk-0-1: var(--sk-a59c25a8); --sk-0-2: var(--sk-cd29fc0e); --sk-0-3: var(--sk-5afd6008); --sk-1-0: var(--sk-5884f221); --sk-1-1: var(--sk-22f4fdd2); --sk-1-2: var(--sk-e0965044); --sk-1-3: var(--sk-11f3ab32); --sk-2-0: var(--sk-fb2ab365); --sk-2-1: var(--sk-6e804f92); --sk-2-2: var(--sk-d2327254); --sk-2-3: var(--sk-0892e572); border-image: var(--sk) 14 / 14px / 2.5px stretch; }
@@ -605,8 +605,8 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
 .btn.btn--sm:focus-visible { border-color: transparent; --sk-0-0: var(--sk-63e5316b); --sk-0-1: var(--sk-2a45db3b); --sk-0-2: var(--sk-07889be9); --sk-0-3: var(--sk-5cf045d0); --sk-1-0: var(--sk-d89f5557); --sk-1-1: var(--sk-3d3fa087); --sk-1-2: var(--sk-d2669e65); --sk-1-3: var(--sk-6ecee4c8); --sk-2-0: var(--sk-27bcad4d); --sk-2-1: var(--sk-cb4926bd); --sk-2-2: var(--sk-b09e51c3); --sk-2-3: var(--sk-66717d5a); border-image: var(--sk) 8 / 8px / 3.5px stretch; }
 .btn.btn--lg:focus-visible { border-color: transparent; --sk-0-0: var(--sk-57e24e6e); --sk-0-1: var(--sk-2fe4cd03); --sk-0-2: var(--sk-b70bab71); --sk-0-3: var(--sk-9b37cfe3); --sk-1-0: var(--sk-18edc824); --sk-1-1: var(--sk-a7b030f3); --sk-1-2: var(--sk-e176db2d); --sk-1-3: var(--sk-317fc8d3); --sk-2-0: var(--sk-257f0cb4); --sk-2-1: var(--sk-c857d3a7); --sk-2-2: var(--sk-af5edee1); --sk-2-3: var(--sk-e2bdf087); border-image: var(--sk) 14 / 14px / 2.5px stretch; }
 
-/* 수정자의 상태. 기대: .btn.btn--primary(→ .btn)에서 받아 그림.
-   크기와의 조합 .btn.btn--sm.btn--primary:hover, .btn.btn--lg.btn--primary:hover도 생성. */
+/* A modifier's state. Expected: taken from .btn.btn--primary (→ .btn).
+   Combinations with sizes, .btn.btn--sm.btn--primary:hover and .btn.btn--lg.btn--primary:hover, are generated too. */
 .btn.btn--primary:hover { border-color: var(--ink); border-color: transparent; --sk-0-0: var(--sk-09317d3d); --sk-0-1: var(--sk-d3c4d40a); --sk-0-2: var(--sk-4f7cfc8c); --sk-0-3: var(--sk-90260092); --sk-1-0: var(--sk-92b003a4); --sk-1-1: var(--sk-6d55c515); --sk-1-2: var(--sk-f91f43f7); --sk-1-3: var(--sk-4d21f34d); --sk-2-0: var(--sk-fd661216); --sk-2-1: var(--sk-b5ebb79d); --sk-2-2: var(--sk-36ecbd73); --sk-2-3: var(--sk-21ec4455); border-image: var(--sk) 10 / 10px / 3px stretch; }
 @media (prefers-color-scheme: dark) { .btn.btn--primary:hover { --sk-0-0: var(--sk-94537e65); --sk-0-1: var(--sk-e2b404f2); --sk-0-2: var(--sk-451ed2d8); --sk-0-3: var(--sk-d780e8ea); --sk-1-0: var(--sk-9719247c); --sk-1-1: var(--sk-dd6eddad); --sk-1-2: var(--sk-82600a1b); --sk-1-3: var(--sk-1aa71275); --sk-2-0: var(--sk-4f91ae4e); --sk-2-1: var(--sk-578d6e35); --sk-2-2: var(--sk-f6f92427); --sk-2-3: var(--sk-aecf5efd); border-image: var(--sk) 10 / 10px / 3px stretch; } }
 .btn.btn--sm.btn--primary:hover { border-color: transparent; --sk-0-0: var(--sk-25ad982b); --sk-0-1: var(--sk-4bb7bd3b); --sk-0-2: var(--sk-833a01c5); --sk-0-3: var(--sk-02ada9b4); --sk-1-0: var(--sk-8f03c817); --sk-1-1: var(--sk-7a776287); --sk-1-2: var(--sk-3f2f3d09); --sk-1-3: var(--sk-365b83b4); --sk-2-0: var(--sk-f5459b0d); --sk-2-1: var(--sk-fd9bb8bd); --sk-2-2: var(--sk-af0297ff); --sk-2-3: var(--sk-5ff32b9e); border-image: var(--sk) 8 / 8px / 3.5px stretch; }
@@ -614,11 +614,11 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
 .btn.btn--lg.btn--primary:hover { border-color: transparent; --sk-0-0: var(--sk-ae2de0b2); --sk-0-1: var(--sk-29b90abb); --sk-0-2: var(--sk-b678b205); --sk-0-3: var(--sk-ececdc1b); --sk-1-0: var(--sk-ac279628); --sk-1-1: var(--sk-b0c30f0b); --sk-1-2: var(--sk-31e5c691); --sk-1-3: var(--sk-22fe4d6b); --sk-2-0: var(--sk-ceff55c8); --sk-2-1: var(--sk-8154b35f); --sk-2-2: var(--sk-08894b95); --sk-2-3: var(--sk-875cd7bf); border-image: var(--sk) 14 / 14px / 2.5px stretch; }
 @media (prefers-color-scheme: dark) { .btn.btn--lg.btn--primary:hover { --sk-0-0: var(--sk-c7a43e2a); --sk-0-1: var(--sk-19ba3343); --sk-0-2: var(--sk-b7772e21); --sk-0-3: var(--sk-70b191a3); --sk-1-0: var(--sk-7d37e480); --sk-1-1: var(--sk-ddffabb3); --sk-1-2: var(--sk-88dd753d); --sk-1-3: var(--sk-bab71c13); --sk-2-0: var(--sk-e44170a0); --sk-2-1: var(--sk-2bdf7467); --sk-2-2: var(--sk-9d88ccb1); --sk-2-3: var(--sk-cc0b5dc7); border-image: var(--sk) 14 / 14px / 2.5px stretch; } }
 
-/* 반응형: 같은 셀렉터가 @media 안에서 모서리만 바꾼다.
-   기대: .btn에서 받아 넓은 화면에서는 모서리 8로 그림.
-   색 수정자·상태와는 같은 @media 안에 조합을 만든다(.btn.btn--primary, .btn.btn--danger, .btn:hover,
-   .btn:focus-visible, .btn.btn--primary:hover → 모서리 8). 크기 수정자는 자기 모서리(4, 10)가
-   원래 CSS에서도 이기므로 조합하지 않는다. */
+/* Responsive: the same selector changes only the radius inside @media.
+   Expected: taken from .btn and drawn with radius 8 on wide screens.
+   With colour modifiers and states, combinations go inside the same @media (.btn.btn--primary, .btn.btn--danger, .btn:hover,
+   .btn:focus-visible, .btn.btn--primary:hover → radius 8). Size modifiers' own radius (4, 10)
+   wins in the original CSS too, so they are not combined. */
 @media (min-width: 900px) {
   .btn { border-radius: 8px; border-color: transparent; --sk-0-0: var(--sk-77ff4ec8); --sk-0-1: var(--sk-07aa50c5); --sk-0-2: var(--sk-da8f4f63); --sk-0-3: var(--sk-28ff51d1); --sk-1-0: var(--sk-08f12d28); --sk-1-1: var(--sk-3c749b8d); --sk-1-2: var(--sk-1e8dc1d3); --sk-1-3: var(--sk-fb480e71); --sk-2-0: var(--sk-3a2bf883); --sk-2-1: var(--sk-ae1768fc); --sk-2-2: var(--sk-16735b4e); --sk-2-3: var(--sk-b5497b30); border-image: var(--sk) 12 / 12px / 3px stretch; }
   @media (prefers-color-scheme: dark) { .btn { --sk-0-0: var(--sk-b6565350); --sk-0-1: var(--sk-bd539ed5); --sk-0-2: var(--sk-53ef9a4f); --sk-0-3: var(--sk-0f201189); --sk-1-0: var(--sk-e18dba00); --sk-1-1: var(--sk-eb9d601d); --sk-1-2: var(--sk-a216a857); --sk-1-3: var(--sk-cc0dc7d9); --sk-2-0: var(--sk-b7292bbb); --sk-2-1: var(--sk-f03b0e6c); --sk-2-2: var(--sk-fbe24f02); --sk-2-3: var(--sk-af76d8b8); border-image: var(--sk) 12 / 12px / 3px stretch; } }
@@ -633,16 +633,16 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
 
 /* ---------------------------------------------------------------- Card */
 
-/* 기대: 그대로 그림. 1px, 모서리 12, --line. */
+/* Expected: drawn as is. 1px, radius 12, --line. */
 .card { padding: 16px; border: 1px solid var(--line); border-color: transparent; --sk-0-0: var(--sk-e0bab7e2); --sk-0-1: var(--sk-f9f0e5b8); --sk-0-2: var(--sk-83a7de36); --sk-0-3: var(--sk-87088b77); --sk-1-0: var(--sk-f09365fc); --sk-1-1: var(--sk-11c9daaa); --sk-1-2: var(--sk-d179db00); --sk-1-3: var(--sk-814e9911); --sk-2-0: var(--sk-ab1214e2); --sk-2-1: var(--sk-6b5e0ea4); --sk-2-2: var(--sk-7cf1fb7e); --sk-2-3: var(--sk-a0a45605); border-image: var(--sk) 16 / 16px / 3.5px stretch; border-radius: 12px; }
 @media (prefers-color-scheme: dark) { .card { --sk-0-0: var(--sk-16bd18ce); --sk-0-1: var(--sk-8287c3c0); --sk-0-2: var(--sk-1a01fb52); --sk-0-3: var(--sk-9e84cc9b); --sk-1-0: var(--sk-5b32b428); --sk-1-1: var(--sk-78032442); --sk-1-2: var(--sk-81e256ec); --sk-1-3: var(--sk-521f0b95); --sk-2-0: var(--sk-76683536); --sk-2-1: var(--sk-74aebfec); --sk-2-2: var(--sk-2cf4cc52); --sk-2-3: var(--sk-d2147cf1); border-image: var(--sk) 16 / 16px / 3.5px stretch; } }
 
-/* 모서리 묶음. 기대: .card에서 받아 각진 모서리로 그림. */
+/* Radius group. Expected: taken from .card and drawn with square corners. */
 .card.card--flat { border-radius: 0; border-color: transparent; --sk-0-0: var(--sk-31dfa426); --sk-0-1: var(--sk-0ea7812f); --sk-0-2: var(--sk-eebb9b35); --sk-0-3: var(--sk-0940468f); --sk-1-0: var(--sk-6118c0fe); --sk-1-1: var(--sk-824953d9); --sk-1-2: var(--sk-0f082383); --sk-1-3: var(--sk-60d0f639); --sk-2-0: var(--sk-3a7de42f); --sk-2-1: var(--sk-5b1aa7e0); --sk-2-2: var(--sk-b3f98042); --sk-2-3: var(--sk-8729dc40); border-image: var(--sk) 14 / 14px / 5.5px stretch; }
 @media (prefers-color-scheme: dark) { .card.card--flat { --sk-0-0: var(--sk-84b4de2e); --sk-0-1: var(--sk-115f9ef7); --sk-0-2: var(--sk-96f99439); --sk-0-3: var(--sk-7c0397d7); --sk-1-0: var(--sk-c4a5a966); --sk-1-1: var(--sk-c09f8c81); --sk-1-2: var(--sk-72273a0f); --sk-1-3: var(--sk-3ca1d761); --sk-2-0: var(--sk-c90cdfd7); --sk-2-1: var(--sk-8d0299a8); --sk-2-2: var(--sk-89a23eae); --sk-2-3: var(--sk-8dd99488); border-image: var(--sk) 14 / 14px / 5.5px stretch; } }
 
-/* 선택 상태(클래스): 두께와 색을 바꾼다. 원래 CSS에서도 두께가 바뀌므로 레이아웃은 원본과 같다.
-   기대: .card에서 받아 2px, --primary로 그림. 모서리 묶음과의 조합 .card.card--flat.is-selected도 생성. */
+/* Selected state (a class): changes width and colour. The width changes in the original CSS too, so the layout matches the original.
+   Expected: taken from .card, drawn 2px in --primary. The combination with the radius group, .card.card--flat.is-selected, is generated too. */
 .card.is-selected { border-width: 2px; border-color: var(--primary); border-color: transparent; --sk-0-0: var(--sk-4b420a9b); --sk-0-1: var(--sk-41df1e1d); --sk-0-2: var(--sk-77238af7); --sk-0-3: var(--sk-7d6e112a); --sk-1-0: var(--sk-4baa8995); --sk-1-1: var(--sk-d2d5682f); --sk-1-2: var(--sk-5b972891); --sk-1-3: var(--sk-b6705dd4); --sk-2-0: var(--sk-a8abd6f1); --sk-2-1: var(--sk-aa028eff); --sk-2-2: var(--sk-c0de3c85); --sk-2-3: var(--sk-2c44f8ea); border-image: var(--sk) 16 / 16px / 3px stretch; }
 @media (prefers-color-scheme: dark) { .card.is-selected { --sk-0-0: var(--sk-19689725); --sk-0-1: var(--sk-58a673a3); --sk-0-2: var(--sk-2e2f40e9); --sk-0-3: var(--sk-79a30388); --sk-1-0: var(--sk-0d0799e7); --sk-1-1: var(--sk-bf74c72d); --sk-1-2: var(--sk-12449acb); --sk-1-3: var(--sk-941eda3a); --sk-2-0: var(--sk-7f2c13e7); --sk-2-1: var(--sk-9f6bb2f9); --sk-2-2: var(--sk-5c9d09c3); --sk-2-3: var(--sk-19b70074); border-image: var(--sk) 16 / 16px / 3px stretch; } }
 .card.card--flat.is-selected { border-color: transparent; --sk-0-0: var(--sk-9fe72c6b); --sk-0-1: var(--sk-5afba71e); --sk-0-2: var(--sk-bb38ea70); --sk-0-3: var(--sk-e5e9eefe); --sk-1-0: var(--sk-d218601d); --sk-1-1: var(--sk-940e4b96); --sk-1-2: var(--sk-3f70c8dc); --sk-1-3: var(--sk-15bfa676); --sk-2-0: var(--sk-aeb414a4); --sk-2-1: var(--sk-deea0e87); --sk-2-2: var(--sk-b4a1b2ed); --sk-2-3: var(--sk-d0aa6de7); border-image: var(--sk) 14 / 14px / 5px stretch; }
@@ -650,13 +650,13 @@ body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: #1d2433; backgrou
 
 /* ---------------------------------------------------------------- Field */
 
-/* 기대: 그대로 그림. 1px, 모서리 6, --line. */
+/* Expected: drawn as is. 1px, radius 6, --line. */
 .field { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-color: transparent; --sk-0-0: var(--sk-eb79b3f8); --sk-0-1: var(--sk-3107a5bb); --sk-0-2: var(--sk-a08d0ac1); --sk-0-3: var(--sk-a295ed93); --sk-1-0: var(--sk-721c00bb); --sk-1-1: var(--sk-41a7390a); --sk-1-2: var(--sk-d6d56f30); --sk-1-3: var(--sk-b4cc8772); --sk-2-0: var(--sk-f28c5147); --sk-2-1: var(--sk-22953a18); --sk-2-2: var(--sk-c9afd362); --sk-2-3: var(--sk-370032a0); border-image: var(--sk) 10 / 10px / 3.5px stretch; border-radius: 6px; background: #ffffff; }
 @media (prefers-color-scheme: dark) { .field { --sk-0-0: var(--sk-97fce6b0); --sk-0-1: var(--sk-7a3bc2e3); --sk-0-2: var(--sk-46de3d85); --sk-0-3: var(--sk-1b10beeb); --sk-1-0: var(--sk-bfa047a3); --sk-1-1: var(--sk-6e8bfb82); --sk-1-2: var(--sk-c56d061c); --sk-1-3: var(--sk-9f09913a); --sk-2-0: var(--sk-8b153e4f); --sk-2-1: var(--sk-34512770); --sk-2-2: var(--sk-c1b7a86e); --sk-2-3: var(--sk-c33bd588); border-image: var(--sk) 10 / 10px / 3.5px stretch; } }
 
-/* 기대: .field에서 받아 그림. */
+/* Expected: taken from .field. */
 .field:focus { border-color: var(--focus); border-color: transparent; --sk-0-0: var(--sk-7c8ff494); --sk-0-1: var(--sk-72b6f013); --sk-0-2: var(--sk-cb849e9d); --sk-0-3: var(--sk-0b3e53fb); --sk-1-0: var(--sk-b6144c8f); --sk-1-1: var(--sk-31441af2); --sk-1-2: var(--sk-e7e5ae84); --sk-1-3: var(--sk-3c8c99ca); --sk-2-0: var(--sk-2890c28b); --sk-2-1: var(--sk-cf2ae920); --sk-2-2: var(--sk-0f416cf6); --sk-2-3: var(--sk-7256e758); border-image: var(--sk) 10 / 10px / 3.5px stretch; outline: none; }
 .field.is-invalid { border-color: var(--danger); border-color: transparent; --sk-0-0: var(--sk-38b2205d); --sk-0-1: var(--sk-470538fe); --sk-0-2: var(--sk-c7ba0a78); --sk-0-3: var(--sk-334f30e6); --sk-1-0: var(--sk-a552e6c4); --sk-1-1: var(--sk-168e61e1); --sk-1-2: var(--sk-deabf03b); --sk-1-3: var(--sk-0db68799); --sk-2-0: var(--sk-cba81cb6); --sk-2-1: var(--sk-6d7d9ec9); --sk-2-2: var(--sk-922dfbc7); --sk-2-3: var(--sk-48c0f001); border-image: var(--sk) 10 / 10px / 3.5px stretch; }
 
-/* 같은 속성(색)을 바꾸는 수정자·상태끼리는 조합하지 않는다.
-   기대: .field.is-invalid:focus 같은 조합 규칙은 생성하지 않음. 원래 CSS처럼 나중 규칙(또는 우선순위)이 이김. */
+/* Modifiers and states changing the same property (colour) are not combined.
+   Expected: no combination rule like .field.is-invalid:focus. As in the original CSS, the later rule (or specificity) wins. */

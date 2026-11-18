@@ -1,4 +1,4 @@
-/* M6c example: exact hatch on elements of known size (spec "채움", "크기 처리").
+/* M6c example: exact hatch on elements of known size (spec "Fills", "Element sizes").
    Each stroke ends between the middle of the border line and 4px outside it.
    Hatch blue #3b82f6 (dark: amber #f59e0b), hover green #16a34a. */
 :root { --hatch: #3b82f6; }

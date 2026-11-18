@@ -166,7 +166,7 @@
 :where(:nth-child(3n+3) > :nth-child(3n+2) > :nth-child(3n+3)) { --sk: var(--sk-2); }
 :where(:nth-child(3n+3) > :nth-child(3n+3) > :nth-child(3n+1)) { --sk: var(--sk-1); }
 :where(:nth-child(3n+3) > :nth-child(3n+3) > :nth-child(3n+2)) { --sk: var(--sk-2); }
-/* M6a example: rough and marker fills (spec "채움").
+/* M6a example: rough and marker fills (spec "Fills").
    Fill yellow #ffe38a (dark: #8a6d00), hover green #9be7a8, bar blue #3b82f6, marker #fff176. */
 :root { --fill: #ffe38a; }
 @media (prefers-color-scheme: dark) {

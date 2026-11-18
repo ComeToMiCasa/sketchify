@@ -1,5 +1,5 @@
 /* M6d example: text-decoration underlines drawn as a border image without a border, just below the
-   text box like a one-sided line (spec "한 변 border, hr, 밑줄").
+   text box like a one-sided line (spec "One-sided borders, hr, underlines").
    Link blue #2563eb (dark: amber #f59e0b), hover green #16a34a, danger red #dc2626. */
 :root { --link: #2563eb; }
 @media (prefers-color-scheme: dark) {
