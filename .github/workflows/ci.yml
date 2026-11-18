@@ -35,6 +35,23 @@ jobs:
           name: chromium-test-results
           path: test-results/
 
+  # The same tests in Firefox, on Linux.
+  firefox:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx playwright install --with-deps firefox
+      - run: npx playwright test --project=firefox
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: firefox-test-results
+          path: test-results/
+
   # The same tests in WebKit on macOS: Safari's engine with Safari's form controls (Linux WebKit
   # draws selects and the textarea grip differently, so the base tests would not test Safari).
   webkit:

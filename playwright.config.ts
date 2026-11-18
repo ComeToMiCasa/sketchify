@@ -22,6 +22,7 @@ export default defineConfig({
         launchOptions: { args: ['--disable-lcd-text'] },
       },
     },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'], viewport: { width: 1200, height: 900 }, deviceScaleFactor: 1 } },
     { name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1200, height: 900 }, deviceScaleFactor: 1 } },
   ],
 });
