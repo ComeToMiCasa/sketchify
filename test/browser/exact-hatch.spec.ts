@@ -112,6 +112,9 @@ test.describe('M6c exact hatch', () => {
     await shoot(p, await transformed());
     const card = await rectOf(p, '#card1');
     await p.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+    // The hover drawing is a large SVG; under load WebKit can take a few frames to swap it in, so
+    // shoot again until it shows (the expectations below are unchanged).
+    await expect.poll(async () => share(inside(await screenshot(p), card, 6), green), { timeout: 3000 }).toBeGreaterThan(0.3);
     const hovered = await screenshot(p);
     expect(share(inside(hovered, card, 6), green), 'green on hover').toBeGreaterThan(0.3);
     expect(share(inside(hovered, card, 6), blue), 'no blue on hover').toBe(0);
