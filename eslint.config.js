@@ -81,7 +81,7 @@ const NO_DATE = [{ name: 'Date', message: 'Deterministic output: no `Date` (CLAU
 const NO_PROCESS = [{ name: 'process', message: IO_MESSAGE }];
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'prototypes/', 'test-results/', 'playwright-report/'] },
+  { ignores: ['dist/', 'site/dist/', 'node_modules/', 'prototypes/', 'test-results/', 'playwright-report/'] },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -110,6 +110,30 @@ export default tseslint.config(
       'no-restricted-syntax': ['error', ...FUNCTION_STYLE, ...NO_DEFAULT_EXPORT],
       'no-restricted-imports': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+
+  // The landing page (site/): the same functional style; Node scripts and one browser script.
+  {
+    files: ['site/**/*.mjs', 'site/**/*.js'],
+    rules: {
+      'func-style': ['error', 'expression'],
+      'prefer-arrow-callback': 'error',
+      'prefer-const': 'error',
+      'no-var': 'error',
+      'no-restricted-syntax': ['error', ...FUNCTION_STYLE, ...NO_DEFAULT_EXPORT],
+    },
+  },
+  {
+    files: ['site/*.mjs'],
+    languageOptions: { globals: Object.fromEntries(['console', 'process', 'setTimeout', 'clearTimeout', 'URL'].map((name) => [name, 'readonly'])) },
+  },
+  {
+    files: ['site/src/**/*.js'],
+    languageOptions: {
+      globals: Object.fromEntries(
+        ['window', 'document', 'console', 'setTimeout', 'requestAnimationFrame', 'performance', 'matchMedia', 'ResizeObserver', 'navigator'].map((name) => [name, 'readonly']),
+      ),
     },
   },
 

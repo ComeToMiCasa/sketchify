@@ -1,0 +1,175 @@
+<header class="top">
+  <div class="wrap top__inner">
+    <span class="logo">sketchify<span class="logo__dot">.</span></span>
+    <nav class="nav" aria-label="Project links">
+      <a href="https://github.com/ComeToMiCasa/sketchify" target="_top">GitHub</a>
+      <a href="https://www.npmjs.com/package/postcss-sketchify" target="_top">npm</a>
+      <a href="https://github.com/ComeToMiCasa/sketchify#readme" target="_top">Docs</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="wrap hero">
+    <p class="eyebrow">A PostCSS plugin</p>
+    <h1 class="hero__title">Sketch your CSS.<br>Keep your <span class="hl">layout</span>.</h1>
+    <p class="hero__lead">postcss-sketchify turns the borders, fills and underlines of plain CSS into hand-drawn sketches at build time. Every element keeps its position and size, down to the pixel.</p>
+    <div class="install">
+      <code class="install__cmd">npm i -D postcss-sketchify</code>
+      <button class="copy" type="button" data-copy="npm i -D postcss-sketchify">Copy</button>
+    </div>
+    <div class="actions">
+      <a class="btn btn--primary" href="https://github.com/ComeToMiCasa/sketchify" target="_top">View on GitHub</a>
+      <a class="btn" href="https://www.npmjs.com/package/postcss-sketchify" target="_top">npm package</a>
+    </div>
+  </section>
+
+  <section class="wrap block">
+    <h2 class="block__title">Three promises</h2>
+    <div class="stats">
+      <article class="stat stat-hatch">
+        <p class="stat__num">0px</p>
+        <p class="stat__label">layout shift. Borders keep their width; only their colour turns transparent.</p>
+      </article>
+      <article class="stat stat-blue">
+        <p class="stat__num">0 KB</p>
+        <p class="stat__label">of JavaScript at runtime. The drawings are SVG, written into your CSS.</p>
+      </article>
+      <article class="stat stat-red">
+        <p class="stat__num">+2–11 KB</p>
+        <p class="stat__label">gzip for a typical page. A budget warning tells you when it grows.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap block">
+    <h2 class="block__title">How it works</h2>
+    <ol class="steps">
+      <li class="step"><span class="step__num">1</span><h3 class="step__title">Write plain CSS</h3><p>Borders, backgrounds and underlines, the way you always do.</p></li>
+      <li class="step"><span class="step__num">2</span><h3 class="step__title">Build</h3><p>The plugin draws each border once with Rough.js and writes it into the CSS as <code>border-image</code>.</p></li>
+      <li class="step"><span class="step__num">3</span><h3 class="step__title">Ship sketches</h3><p>Neighbours get different drawings, so a list of cards never looks stamped.</p></li>
+    </ol>
+    <div class="code-pair">
+      <figure class="code">
+        <figcaption class="code__label">You write</figcaption>
+        <pre class="code__body">.card {
+  border: 2px solid #111111;
+  border-radius: 12px;
+}</pre>
+      </figure>
+      <figure class="code">
+        <figcaption class="code__label">You get</figcaption>
+        <pre class="code__body">.card {
+  border: 2px solid #111111;
+  border-radius: 12px;
+  border-color: transparent;
+  border-image: var(--sk) 16 / 16px / 3px stretch;
+}</pre>
+      </figure>
+    </div>
+  </section>
+
+  <section class="wrap block">
+    <h2 class="block__title">What gets drawn</h2>
+    <div class="features">
+      <article class="feature">
+        <h3 class="feature__title">Borders</h3>
+        <p>Any width in px, square or rounded up to 32px.</p>
+        <div class="swatches">
+          <span class="swatch swatch-w1">1px</span>
+          <span class="swatch swatch-w2">2px</span>
+          <span class="swatch swatch-w4">4px</span>
+          <span class="swatch swatch-round">12px</span>
+        </div>
+      </article>
+      <article class="feature">
+        <h3 class="feature__title">Single lines</h3>
+        <p>One side of a border, or an <code>hr</code>. The ends always reach the edges.</p>
+        <ul class="list">
+          <li>Dividers in a list</li>
+          <li>However long it gets</li>
+          <li>Still reach both ends</li>
+        </ul>
+      </article>
+      <article class="feature">
+        <h3 class="feature__title">Underlines</h3>
+        <p>Inline links get a line under every line of text: <a class="ulink" href="https://github.com/ComeToMiCasa/sketchify" target="_top">this link wraps over more than one line on a narrow screen</a>.</p>
+      </article>
+      <article class="feature">
+        <h3 class="feature__title">Fills</h3>
+        <p>Add <code>--sketch-fill</code> next to a background colour.</p>
+        <div class="fills">
+          <span class="fill fill--rough">rough</span>
+          <span class="fill fill--marker">marker</span>
+          <span class="fill fill--hatch">hatch</span>
+        </div>
+      </article>
+      <article class="feature">
+        <h3 class="feature__title">States</h3>
+        <p>Hover keeps the same shape in another colour.</p>
+        <div class="actions">
+          <button class="btn btn--hover" type="button">Hover me</button>
+        </div>
+      </article>
+      <article class="feature">
+        <h3 class="feature__title">Roughness</h3>
+        <p>Three presets or any number. Switch them above: the layout does not move.</p>
+        <hr class="rule">
+        <p class="small">subtle · normal · messy</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap block">
+    <h2 class="block__title">Use it</h2>
+    <div class="code-pair">
+      <figure class="code">
+        <figcaption class="code__label">postcss.config.js</figcaption>
+        <pre class="code__body">import sketchify from 'postcss-sketchify';
+
+export default {
+  plugins: [sketchify({ roughness: 'normal' })],
+};</pre>
+      </figure>
+      <figure class="code">
+        <figcaption class="code__label">Command line</figcaption>
+        <pre class="code__body">npx sketchify style.css -o out.css
+npx sketchify a.css b.css -d dist
+npx sketchify style.css -o out.css --watch</pre>
+      </figure>
+    </div>
+    <!-- A grid of rows rather than a table: one line per row, drawn end to end. -->
+    <div class="options" role="table" aria-label="Options">
+      <div class="options__row options__head" role="row"><span role="columnheader">Option</span><span role="columnheader">Default</span><span role="columnheader">What it does</span></div>
+      <div class="options__row" role="row"><span role="cell"><code>roughness</code></span><span role="cell"><code>'normal'</code></span><span role="cell"><code>'subtle'</code>, <code>'normal'</code>, <code>'messy'</code> or a number.</span></div>
+      <div class="options__row" role="row"><span role="cell"><code>hatch</code></span><span role="cell"><code>'normal'</code></span><span role="cell"><code>'fine'</code>, <code>'normal'</code>, <code>'bold'</code> or your own numbers.</span></div>
+      <div class="options__row" role="row"><span role="cell"><code>quiet</code></span><span role="cell"><code>[]</code></span><span role="cell">Warning kinds to leave out.</span></div>
+      <div class="options__row" role="row"><span role="cell"><code>budget</code></span><span role="cell"><code>{ gzip: 30 }</code></span><span role="cell">Warn when drawings add more KB than this.</span></div>
+    </div>
+  </section>
+
+  <section class="wrap block">
+    <h2 class="block__title">Good to know</h2>
+    <ul class="limits">
+      <li><strong>Browsers:</strong> Chrome, Edge, Safari and every browser on iOS. Not Firefox.</li>
+      <li><strong>Your own CSS:</strong> hand-written stylesheets, not CSS frameworks.</li>
+      <li><strong>Colours at build time:</strong> literal colours or variables the plugin can resolve, including dark mode media queries.</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <hr class="rule">
+  <p class="foot__text">MIT licensed · <a class="ulink" href="https://github.com/ComeToMiCasa/sketchify" target="_top">GitHub</a> · <a class="ulink" href="https://www.npmjs.com/package/postcss-sketchify" target="_top">npm</a></p>
+</footer>
+
+<script>
+  document.querySelectorAll('[data-copy]').forEach((button) => {
+    button.addEventListener('click', () => {
+      navigator.clipboard?.writeText(button.dataset.copy ?? '').then(() => {
+        button.textContent = 'Copied';
+        setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+      }, () => {});
+    });
+  });
+</script>
