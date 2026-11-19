@@ -3,17 +3,46 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sketchify.js</title>
+<title>postcss-sketchify: hand-drawn CSS borders and fills, same layout</title>
 <meta name="description" content="postcss-sketchify turns the borders, fills and underlines of plain CSS into hand-drawn sketches at build time, without moving a pixel of layout.">
+<link rel="canonical" href="https://cometomicasa.github.io/sketchify/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f3efe6">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="postcss-sketchify">
+<meta property="og:title" content="postcss-sketchify: hand-drawn CSS borders and fills, same layout">
+<meta property="og:description" content="postcss-sketchify turns the borders, fills and underlines of plain CSS into hand-drawn sketches at build time, without moving a pixel of layout.">
+<meta property="og:url" content="https://cometomicasa.github.io/sketchify/">
+<meta property="og:image" content="https://cometomicasa.github.io/sketchify/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The same page split in two: plain brutalist CSS on the left, its hand-drawn version on the right.">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "postcss-sketchify",
+  "description": "postcss-sketchify turns the borders, fills and underlines of plain CSS into hand-drawn sketches at build time, without moving a pixel of layout.",
+  "url": "https://cometomicasa.github.io/sketchify/",
+  "codeRepository": "https://github.com/ComeToMiCasa/sketchify",
+  "sameAs": ["https://www.npmjs.com/package/postcss-sketchify"],
+  "programmingLanguage": ["CSS", "TypeScript"],
+  "runtimePlatform": "Node.js, PostCSS",
+  "license": "https://opensource.org/licenses/MIT",
+  "keywords": ["PostCSS plugin", "hand-drawn", "sketch", "CSS", "SVG", "border-image"],
+  "author": { "@type": "Person", "name": "ComeToMiCasa", "url": "https://github.com/ComeToMiCasa" }
+}
+</script>
+<link rel="stylesheet" href="raw.css">
 <link rel="stylesheet" href="shell.css">
 <link rel="stylesheet" href="tag.css">
 </head>
 <body>
-<div class="stage" id="stage">
-  <!-- The same page twice: the original CSS underneath, the sketched CSS on top, cut at the divider. -->
-  <iframe class="layer" id="raw" src="raw.html" title="The page with its original CSS" aria-hidden="true" tabindex="-1" scrolling="no"></iframe>
-  <iframe class="layer layer--sketch" id="sketch" src="sketch-normal.html" title="postcss-sketchify" scrolling="no"></iframe>
-</div>
+<!-- page -->
+<!-- The page above is the original: plain CSS, what search engines and screen readers read. The
+     same page sketched lies on top in this frame, cut at the divider. -->
+<iframe class="sketch" id="sketch" src="sketch-normal.html" title="The page through postcss-sketchify" aria-hidden="true" tabindex="-1" scrolling="no"></iframe>
 
 <div class="divider" id="divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Divider between the original and the sketched CSS" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
   <span class="divider__line" aria-hidden="true"></span>

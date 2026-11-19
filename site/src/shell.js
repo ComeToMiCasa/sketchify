@@ -1,41 +1,42 @@
-// The split-screen shell: the same page twice, the original CSS underneath and the sketched CSS on
-// top, cut at a divider the visitor drags. The frames do not scroll; they grow to their content and
-// the shell scrolls, so both copies always line up (their layouts are the same, which is the point).
-const stage = document.getElementById('stage');
+// The split screen: the index is the page with its original CSS; the same page with the sketched
+// CSS lies on top in a frame, cut at a divider the visitor drags. The frame does not scroll; it grows
+// to its content and scrolls with the page, so both copies always line up (their layouts are the
+// same, which is the point).
 const divider = document.getElementById('divider');
-const raw = document.getElementById('raw');
+const root = document.documentElement;
 const buttons = [...document.querySelectorAll('[data-roughness]')];
 
-const state = { split: 0.5, sketch: document.getElementById('sketch'), heights: new Map() };
+const state = { split: 0.5, sketch: document.getElementById('sketch') };
 
 const clamp = (value) => Math.min(1, Math.max(0, value));
 
 const setSplit = (fraction) => {
   state.split = clamp(fraction);
-  document.documentElement.style.setProperty('--split', `${(state.split * stage.clientWidth).toFixed(1)}px`);
+  root.style.setProperty('--split', `${(state.split * root.clientWidth).toFixed(1)}px`);
   divider.setAttribute('aria-valuenow', String(Math.round(state.split * 100)));
 };
 
 // --- Heights -------------------------------------------------------------------------------
 
-const fit = () => {
-  const values = [...state.heights.values()];
-  const tallest = Math.max(...values, 0);
-  stage.style.height = `${tallest}px`;
-  if (values.length === 2 && Math.abs(values[0] - values[1]) > 0.5) {
-    console.warn(`sketchify: the two copies differ in height (${values.join(' vs ')}px). The layout should be identical.`);
+/** The two copies should be the same height; compared body to body (the frame, positioned, adds
+ * nothing to the page's body). */
+const compare = (frame) => {
+  const doc = frame.contentDocument;
+  if (!doc || doc.readyState !== 'complete' || doc.URL === 'about:blank') return;
+  const page = document.body.offsetHeight;
+  const sketch = doc.body.offsetHeight;
+  if (Math.abs(page - sketch) > 0.5) {
+    console.warn(`sketchify: the two copies differ in height (${page} vs ${sketch}px). The layout should be identical.`);
   }
 };
 
-/** Keeps a frame as tall as its document. */
+/** Keeps the frame as tall as its document. */
 const follow = (frame) => {
   const measure = () => {
     const doc = frame.contentDocument;
     if (!doc) return;
-    const height = doc.documentElement.scrollHeight;
-    frame.style.height = `${height}px`;
-    state.heights.set(frame === raw ? 'raw' : 'sketch', height);
-    fit();
+    frame.style.height = `${doc.documentElement.scrollHeight}px`;
+    compare(frame);
   };
   const start = () => {
     const doc = frame.contentDocument;
@@ -49,7 +50,7 @@ const follow = (frame) => {
 
 // --- Divider -------------------------------------------------------------------------------
 
-const fractionAt = (clientX) => (clientX - stage.getBoundingClientRect().left) / stage.clientWidth;
+const fractionAt = (clientX) => clientX / root.clientWidth;
 
 divider.addEventListener('pointerdown', (event) => {
   event.preventDefault();
@@ -105,7 +106,7 @@ const switchTo = (roughness) => {
   next.removeAttribute('id');
   next.src = `sketch-${roughness}.html`;
   next.style.visibility = 'hidden';
-  stage.append(next);
+  state.sketch.after(next);
   next.addEventListener(
     'load',
     () => {
@@ -122,6 +123,6 @@ const switchTo = (roughness) => {
 buttons.forEach((button) => button.addEventListener('click', () => switchTo(button.dataset.roughness)));
 
 setSplit(0.5);
-follow(raw);
 follow(state.sketch);
+new ResizeObserver(() => compare(state.sketch)).observe(document.body);
 hint();

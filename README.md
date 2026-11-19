@@ -2,6 +2,8 @@
 
 A PostCSS plugin that turns the borders, fills and underlines of plain CSS into hand-drawn sketches, **without moving a single pixel of layout**.
 
+**[See it live →](https://cometomicasa.github.io/sketchify/)**
+
 ```css
 /* your CSS */
 .card { border: 2px solid #1d2433; border-radius: 12px; }
