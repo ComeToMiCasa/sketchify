@@ -1,7 +1,7 @@
 {
   "name": "postcss-sketchify",
   "version": "0.1.0",
-  "description": "PostCSS plugin that turns plain CSS borders and fills into hand-drawn sketches without changing layout",
+  "description": "A PostCSS plugin that turns the borders, fills and underlines of plain CSS into hand-drawn SVG sketches at build time, without changing layout",
   "license": "MIT",
   "repository": {
     "type": "git",

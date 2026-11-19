@@ -1,6 +1,6 @@
 # sketchify
 
-Turns the borders, fills and underlines of plain CSS into hand-drawn sketches, without moving a single pixel of layout.
+The command line for [postcss-sketchify](https://cometomicasa.github.io/sketchify/), a PostCSS plugin that turns the borders, fills and underlines of plain CSS into hand-drawn SVG sketches at build time, without changing layout.
 
 ```sh
 npx sketchify style.css -o style.sketch.css

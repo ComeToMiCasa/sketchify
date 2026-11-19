@@ -43,7 +43,7 @@ const build = async () => {
     writeFileSync(join(OUT, `sketch-${roughness}.html`), sketchPage(`sketchify: ${roughness}`, [`sketch-${roughness}.css`, 'hand.css'], body));
   });
   writeFileSync(join(OUT, 'tag.css'), tag.css);
-  ['shell.css', 'shell.js', 'hand.css', 'fonts', 'favicon.svg', 'og.png', 'sitemap.xml', 'google0f88cebd856d9d90.html'].forEach((name) => cpSync(join(SRC, name), join(OUT, name), { recursive: true }));
+  ['shell.css', 'shell.js', 'hand.css', 'fonts', 'favicon.svg', 'og.png', 'sitemap.xml', 'llms.txt', 'google0f88cebd856d9d90.html'].forEach((name) => cpSync(join(SRC, name), join(OUT, name), { recursive: true }));
   writeFileSync(join(OUT, 'index.html'), indexPage(read('shell.html'), body));
 
   sketches.forEach(({ roughness, result }) => {

@@ -72,3 +72,28 @@ describe('landing page metadata', () => {
     expect(shell).toContain('<link rel="icon" href="favicon.svg" type="image/svg+xml">');
   });
 });
+
+// One definition, word for word, wherever the project describes itself: AI answers quote what they
+// see repeated (the page, its metadata, llms.txt, README and npm).
+describe('landing page definition', () => {
+  const file = (path: string): string => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+  const DEFINITION =
+    'postcss-sketchify is a PostCSS plugin that turns the borders, fills and underlines of plain CSS into hand-drawn SVG sketches at build time, without changing layout.';
+  const shell = file('site/src/shell.html');
+
+  it('is the description in the metadata and the structured data', () => {
+    expect(shell.match(/<meta name="description" content="([^"]+)">/)?.[1]).toBe(DEFINITION);
+    expect(shell.match(/<meta property="og:description" content="([^"]+)">/)?.[1]).toBe(DEFINITION);
+    const ld = JSON.parse(shell.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1] ?? '{}') as { description?: string };
+    expect(ld.description).toBe(DEFINITION);
+  });
+
+  it('opens the page, llms.txt, the README and the npm description', () => {
+    const opening = DEFINITION.replace(', without changing layout.', '');
+    expect(file('site/src/page.html')).toContain(`<p class="hero__lead">${opening}.`);
+    expect(file('site/src/llms.txt').split('\n').slice(0, 3)).toEqual(['# postcss-sketchify', '', `> ${DEFINITION}`]);
+    expect(file('README.md')).toContain(`**postcss-sketchify** ${DEFINITION.replace('postcss-sketchify ', '').replace(', without changing layout.', ', **without changing layout**')}`);
+    const pkg = JSON.parse(file('package.json')) as { description: string };
+    expect(pkg.description).toBe(DEFINITION.replace('postcss-sketchify is a', 'A').replace(/\.$/, ''));
+  });
+});

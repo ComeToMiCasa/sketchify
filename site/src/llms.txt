@@ -1,0 +1,52 @@
+# postcss-sketchify
+
+> postcss-sketchify is a PostCSS plugin that turns the borders, fills and underlines of plain CSS into hand-drawn SVG sketches at build time, without changing layout.
+
+Every element keeps its position and size: borders keep their width and style, only their colour turns transparent and a hand-drawn SVG takes its place through `border-image`. There is no JavaScript at runtime; the drawings are written into the CSS, and the same CSS always gives the same output. It is tested in Chromium, Firefox and WebKit. MIT licensed, Node 20 or later.
+
+## Install and use
+
+```sh
+npm install --save-dev postcss-sketchify postcss
+```
+
+```js
+// postcss.config.js (Vite, Next.js, webpack and Parcel read it)
+import sketchify from 'postcss-sketchify';
+export default { plugins: [sketchify({ roughness: 'normal' })] };
+```
+
+Without a build tool: `npx sketchify style.css -o style.sketch.css` (also `-d <folder>`, `--watch`, standard input to standard output).
+
+## What gets drawn
+
+- `border` on all four sides (solid, px width, one colour, radius up to 32px): a hand-drawn box.
+- A single side (`border-bottom`) or `hr { border-top: … }`: a hand-drawn line reaching both ends.
+- `text-decoration: underline` on inline elements: a hand-drawn line under each line of text.
+- `--sketch-fill: rough | marker | hatch` next to a `background-color`: a rough fill, a highlighter swipe or hatching.
+- `:hover`, `:focus`, modifiers (`.btn.btn--primary`), `@media` rules and `prefers-color-scheme: dark` themes keep the same shape in their own colour.
+- `@sketchify base;` adds hand-drawn defaults for form controls, buttons, links and `hr`, which your own styles always override.
+
+## Options
+
+- `roughness`: `'subtle'`, `'normal'` (default), `'messy'` or a number.
+- `hatch`: `'fine'`, `'normal'` (default), `'bold'` or your own numbers.
+- `base`: colours for `@sketchify base`.
+- `quiet`: warning kinds to leave out.
+- `budget`: size warning threshold, `{ gzip: 30 }` KB by default.
+- Per rule: `--sketch: off` leaves a rule as written; `--sketch-size: 240 160` gives an element's size for an exact hatch.
+
+## Limits
+
+- Colours must be known at build time: `currentColor`, a border without a colour, or a variable changed by a class is an error.
+- Meant for your own CSS; frameworks like Bootstrap or Pico, which theme through classes and attributes, mostly end in errors.
+- Dashed or dotted borders, borders with different colours per side and radii over 32px stay as plain CSS, with a warning.
+- Drawings add size to the CSS, typically 2–11 KB gzip per page.
+- Firefox: when a hover swaps the drawing, the border can go blank for one frame.
+
+## Links
+
+- [Live demo](https://cometomicasa.github.io/sketchify/): the same page split into plain CSS and its sketched version
+- [README](https://github.com/ComeToMiCasa/sketchify#readme): full documentation, every option and warning
+- [npm package](https://www.npmjs.com/package/postcss-sketchify)
+- [Source on GitHub](https://github.com/ComeToMiCasa/sketchify)
