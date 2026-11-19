@@ -1,6 +1,8 @@
 # postcss-sketchify
 
-A PostCSS plugin that turns the borders, fills and underlines of plain CSS into hand-drawn sketches, **without moving a single pixel of layout**.
+**postcss-sketchify** is a PostCSS plugin that turns the borders, fills and underlines of plain CSS into hand-drawn SVG sketches at build time, **without changing layout**: every element keeps its position and size, down to the pixel.
+
+**[See it live →](https://cometomicasa.github.io/sketchify/)**
 
 ```css
 /* your CSS */

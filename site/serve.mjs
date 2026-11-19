@@ -12,7 +12,7 @@ const SITE = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(SITE);
 const OUT = join(SITE, 'dist');
 const PORT = Number(process.env.PORT ?? 4173);
-const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.xml': 'application/xml' };
 
 const run = (command, args) =>
   new Promise((done) => {

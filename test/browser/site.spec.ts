@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { indexPage, sketchPage } from '../../site/pages.mjs';
 import { transform } from '../helpers/transform';
 import { captureLayout, diffLayouts, type Layout } from './lib/layout';
 import { type Screenshot, near, pixelAt, rectOf, screenshot } from './lib/pixels';
@@ -77,4 +78,63 @@ test('landing page: the sketched copy is really drawn (same font, so only the dr
     if (!rect) throw new Error(`no ${selector}`);
     expect(changed(raw, sketched, rect), selector).toBeGreaterThan(0.01);
   });
+});
+
+// The built index: the page itself, with the sketched copy over it in a frame. Both must line up in
+// the real shell too, not only side by side in separate documents.
+test.describe('landing page: the index and its sketched frame line up', () => {
+  const shellFile = (name: string): string => read(name);
+  const targets = ['.hero__title', '.install', '.stat-hatch', '.options__row', '.foot'];
+
+  for (const width of WIDTHS) {
+    test(`${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const sketch = await transform(css, { roughness: 'normal' }, cssPath);
+      const tag = await transform(shellFile('tag.css'), { roughness: 'normal' }, new URL('tag.css', SITE).pathname);
+      const files: Readonly<Record<string, readonly [string, string]>> = {
+        'index.html': [indexPage(shellFile('shell.html'), html), 'text/html'],
+        'sketch-normal.html': [sketchPage('sketchify: normal', ['sketch-normal.css', 'hand.css'], html), 'text/html'],
+        'raw.css': [css, 'text/css'],
+        'sketch-normal.css': [sketch, 'text/css'],
+        'hand.css': [hand, 'text/css'],
+        'tag.css': [tag, 'text/css'],
+        'shell.css': [shellFile('shell.css'), 'text/css'],
+        'shell.js': [shellFile('shell.js'), 'text/javascript'],
+      };
+      await page.route(`${ORIGIN}**`, async (route) => {
+        const path = new URL(route.request().url()).pathname.slice(1);
+        if (path.startsWith('fonts/')) return route.fulfill({ body: readFileSync(new URL(path, SITE)), contentType: 'font/woff2' });
+        const file = files[path];
+        return file ? route.fulfill({ body: file[0], contentType: file[1] }) : route.fulfill({ status: 404 });
+      });
+      const warnings: Array<string> = [];
+      page.on('console', (message) => {
+        if (message.type() === 'warning' && message.text().startsWith('sketchify:')) warnings.push(message.text());
+      });
+      await page.goto(`${ORIGIN}index.html`);
+      const frame = page.frame({ url: `${ORIGIN}sketch-normal.html` });
+      if (!frame) throw new Error('no sketched frame');
+      await frame.waitForLoadState('load');
+      await Promise.all([page.evaluate(() => document.fonts.ready), frame.evaluate(() => document.fonts.ready)]);
+      await page.waitForTimeout(100);
+
+      const rects = (selectors: ReadonlyArray<string>): Array<Array<number>> =>
+        selectors.map((selector) => {
+          const r = document.querySelector(selector)?.getBoundingClientRect();
+          return r ? [r.x + scrollX, r.y + scrollY, r.width, r.height].map((n) => Math.round(n * 10) / 10) : [];
+        });
+      const outer = await page.evaluate(rects, targets);
+      const inner = await frame.evaluate(rects, targets);
+      const offset = await page.evaluate(() => {
+        const r = document.getElementById('sketch')?.getBoundingClientRect();
+        return [r?.x ?? -1, (r?.y ?? -1) + scrollY];
+      });
+      expect(offset).toEqual([0, 0]);
+      expect(outer.every((r) => r.length === 4)).toBe(true);
+      expect(inner).toEqual(outer);
+      const heights = await page.evaluate(() => [document.body.offsetHeight, document.getElementById('sketch')?.getBoundingClientRect().height]);
+      expect(heights[1]).toBeGreaterThanOrEqual(heights[0] ?? Infinity);
+      expect(warnings).toEqual([]);
+    });
+  }
 });

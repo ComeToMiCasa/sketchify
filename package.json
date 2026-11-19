@@ -1,13 +1,13 @@
 {
   "name": "postcss-sketchify",
   "version": "0.1.0",
-  "description": "PostCSS plugin that turns plain CSS borders and fills into hand-drawn sketches without changing layout",
+  "description": "A PostCSS plugin that turns the borders, fills and underlines of plain CSS into hand-drawn SVG sketches at build time, without changing layout",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ComeToMiCasa/sketchify.git"
   },
-  "homepage": "https://github.com/ComeToMiCasa/sketchify#readme",
+  "homepage": "https://cometomicasa.github.io/sketchify/",
   "bugs": {
     "url": "https://github.com/ComeToMiCasa/sketchify/issues"
   },
@@ -48,7 +48,11 @@
     "postcss-plugin",
     "sketch",
     "hand-drawn",
-    "rough"
+    "rough",
+    "sketchy",
+    "css",
+    "svg",
+    "border-image"
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsup",
@@ -58,6 +62,7 @@
     "tune:hatch": "node test/tools/hatch-tuner/build.mjs",
     "site": "npm run build && node site/build.mjs",
     "site:dev": "npm run build && node site/serve.mjs",
+    "site:og": "npm run site && node site/og.mjs",
     "pack:check": "npm run build && npm pack --dry-run"
   },
   "peerDependencies": {
